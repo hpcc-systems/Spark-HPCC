@@ -5,6 +5,26 @@
   <version>1.0.1-SNAPSHOT</version>
   <name>spark_hpcc</name>
   <description>RDD for reading files residing in an HPCC cluster environment</description>
+  <distributionManagement>
+	<snapshotRepository>
+		<id>ossrh</id>
+		<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+	</snapshotRepository>
+  </distributionManagement>
+  <profiles>
+   <profile>
+     <id>allow-snapshots</id>
+        <activation><activeByDefault>true</activeByDefault></activation>
+     <repositories>
+       <repository>
+         <id>snapshots-repo</id>
+         <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+         <!--releases><enabled>false</enabled></releases-->
+         <snapshots><enabled>true</enabled></snapshots>
+       </repository>
+     </repositories>
+   </profile>
+  </profiles>
   <dependencies>
      <dependency>
         <groupId>org.apache.spark</groupId>
@@ -21,5 +41,14 @@
         <artifactId>log4j-api</artifactId>
         <version>2.10.0</version>
      </dependency>
+     <dependency>
+        <groupId>org.hpccsystems</groupId>
+        <artifactId>wsclient</artifactId>
+        <version>2.0.0-SNAPSHOT</version>
+     </dependency>
   </dependencies>
+  <properties>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+  </properties>
 </project>
