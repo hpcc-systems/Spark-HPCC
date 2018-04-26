@@ -24,6 +24,9 @@ public class RecordTest {
     System.out.print("Enter file name: ");
     System.out.flush();
     String testName = br.readLine();
+    //String testName = "~thor::test::iris";
+    //String testName = "~thor::jdh::japi_test1";
+
     System.out.print("User id: ");
     System.out.flush();
     String user = br.readLine();
@@ -36,12 +39,16 @@ public class RecordTest {
     System.out.print("Base IP or empty: ");
     System.out.flush();
     String base_ip = br.readLine();
+    System.out.print("Project list (comma delimited): ");
+    System.out.flush();
+    String projectList = br.readLine();
+
     HpccFile hpcc;
     if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, projectList);
     } else {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, ri);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, projectList, ri);
     }
     System.out.println("Getting file parts");
     FilePart[] parts = hpcc.getFileParts();
@@ -54,7 +61,7 @@ public class RecordTest {
     System.out.println("Getting record definition");
     RecordDef rd = hpcc.getRecordDefinition();
     FieldDef root_def = rd.getRootDef();
-    Iterator<FieldDef> iter = root_def.getDefinitions();
+    Iterator<FieldDef> iter = root_def.getDefinitions(rd.getProjectedList());
     while (iter.hasNext()) {
       FieldDef field = iter.next();
       System.out.println(field.toString());

@@ -28,9 +28,10 @@ import org.apache.spark.sql.types.DataType;
  */
 public class RecordDef implements Serializable {
   private static final long serialVersionUID = 1l;
-  private String input_def;
-  private FieldDef root;
-  private String output_def;
+  private String input_def; //json from ESP->DALI
+  private FieldDef root; // list of top level fields
+  private String output_def; // json string, TODO describe trimmed output layout
+  private String [] projectedList;
   // flag values from eclhelper.hpp RtlFieldTypeMask enum definition
   final private static short flag_unknownsize = 1024;
   // type codes from rtlconst.hpp type_vals enum definition
@@ -48,6 +49,7 @@ public class RecordDef implements Serializable {
     this.root = null;
     this.output_def = "";
     this.input_def = "";
+    projectedList = null;
   }
   /**
    * Construct a record definition.  Normally used by the static
@@ -57,10 +59,11 @@ public class RecordDef implements Serializable {
    * @param root the definition parsed into FieldDef objects.  The input
    * is the root definition for the record.
    */
-  public RecordDef(String def, FieldDef root) {
+  public RecordDef(String def, FieldDef root, String outoputdef, String [] projectedlist) {
     this.input_def = def;
-    this.output_def = def;  // default output is all content
+    this.output_def = outoputdef;  // default output is all content
     this.root = root;
+    this.projectedList = projectedlist;
   }
   /**
    * Create a record definition object from the JSON definition
@@ -70,29 +73,38 @@ public class RecordDef implements Serializable {
    * @param def the JSON record type defintion returned from WsDfu
    * @return a new record definition
    */
-  static public RecordDef parseJsonDef(String def)
-      throws UnusableDataDefinitionException {
+  static public RecordDef parseJsonDef(String def, String [] projectedList) throws UnusableDataDefinitionException
+  {
     ArrayList<DefToken> toks = new ArrayList<DefToken>();
     try {
       toks = DefToken.parseDefString(def);
     } catch (JsonParseException e) {
       throw new UnusableDataDefinitionException("Failed to parse def", e);
     }
+
+    boolean buildOutputJSON = projectedList != null && projectedList.length != 0;
+    //we could combine the output flag and the projectedlistcount
+    //int projectedListCount =  projectedList == null ? 0 : projectedList.length;
+    
+    StringBuilder outdef = new StringBuilder();
+    if (buildOutputJSON)
+    	outdef.append("{\t");
+
     Iterator<DefToken> toks_iter = toks.iterator();
     HashMap<String, TypeDef> types = new HashMap<String, TypeDef>();
     ArrayList<FieldDef> record_fields = new ArrayList<FieldDef>();
     // have an unnamed type definition object with 1 or more pairs of
     // type definition objects followed by a fieldType pair of Record Type,
     // a length pair, and a fields array pair of fields of the record
-    if (!toks_iter.hasNext()) {
+    if (!toks_iter.hasNext()) 
+    {
       throw new UnusableDataDefinitionException("Empty definition");
     }
     long len = 0;
     long type_id = 0;
     long childLen = 0;
     DefToken curr = toks_iter.next();
-    if (curr.getToken() != JsonToken.START_OBJECT
-        || curr.getName() != null) {
+    if (curr.getToken() != JsonToken.START_OBJECT || curr.getName() != null) {
       StringBuilder sb = new StringBuilder();
       sb.append("Illegal start of definition. ");
       if (curr.getName() != null) sb.append("Named pair of type ");
@@ -102,32 +114,74 @@ public class RecordDef implements Serializable {
       sb.append(" found.");
       throw new UnusableDataDefinitionException(sb.toString());
     }
+
     // pick up the type definitions
     if (!toks_iter.hasNext()) {
       throw new UnusableDataDefinitionException("Early termination.");
     }
     curr = toks_iter.next();
+    int typecount = 0;
     while (curr.getToken()==JsonToken.START_OBJECT && toks_iter.hasNext()) {
       TypeDef typedef = TypeDef.parseDef(curr, toks_iter, types);
       types.put(typedef.getTypeName(), typedef);
+      if (buildOutputJSON)
+      {
+    	  if (typecount > 0)
+    		  outdef.append(", ");
+    	  outdef.append(typedef.toJSON());
+      }
       curr = toks_iter.next();
+      typecount++;
     }
+    if (buildOutputJSON)
+	   outdef.append(",\n");
     // pick up the field definitions, type, and length
     if (!toks_iter.hasNext()) {
       throw new UnusableDataDefinitionException("Early termination");
     }
+    
     if (curr.getParent() != 0) {
       StringBuilder sb = new StringBuilder();
       sb.append("Unexpected content, not in the root object; found ");
       sb.append(curr.toString());
       throw new UnusableDataDefinitionException(sb.toString());
     }
-    while (curr.getToken()!=JsonToken.END_OBJECT && toks_iter.hasNext()) {
-      if (fieldListName.equals(curr.getName())
-          && curr.getToken()==JsonToken.START_ARRAY) {
+
+    boolean firstOutField = true;
+    while (curr.getToken()!=JsonToken.END_OBJECT && toks_iter.hasNext())
+    {
+      if (fieldListName.equals(curr.getName()) && curr.getToken()==JsonToken.START_ARRAY)
+      {
+    	if (buildOutputJSON)
+    	    outdef.append(",\n\"fields\": [ ");
+
         curr = toks_iter.next();
-        while (toks_iter.hasNext() && curr.getToken()!=JsonToken.END_ARRAY) {
+        while (toks_iter.hasNext() && curr.getToken()!=JsonToken.END_ARRAY)
+        {
           FieldDef fieldDef = FieldDef.parseDef(curr, toks_iter, types);
+          
+          if (buildOutputJSON)
+          {
+	          boolean includedfield = false;
+	          for (String projectedfield: projectedList) // this should be a map
+	          {
+	            if (fieldDef.getFieldName().equals(projectedfield))
+	            {
+	            	includedfield = true;
+	            	break;
+	            }
+	          }
+	
+	          if (includedfield)
+	          {
+	        	  if (firstOutField)
+	        		  firstOutField = false;
+	        	  else
+	        		  outdef.append(", ");
+	
+	        	  outdef.append(fieldDef.toJSON());      	  
+	          }
+          }
           record_fields.add(fieldDef);
           curr = toks_iter.next();
         }
@@ -142,6 +196,10 @@ public class RecordDef implements Serializable {
           sb.append(curr.toString());
           throw new UnusableDataDefinitionException(sb.toString());
         }
+        
+        if (buildOutputJSON)
+    		outdef.append("\"fieldType\": ").append(type_id);
+        
       } else if (fieldLengthName.equals(curr.getName())) {
         len = curr.getInteger();
       } else if (childName.equals(curr.getName())) {
@@ -152,6 +210,7 @@ public class RecordDef implements Serializable {
       }
       curr = toks_iter.next();
     }
+    
     if (curr.getParent() != -1 || curr.getToken() != JsonToken.END_OBJECT) {
       StringBuilder sb = new StringBuilder();
       sb.append("Unexpected end record definition, found ");
@@ -161,11 +220,20 @@ public class RecordDef implements Serializable {
     if (toks_iter.hasNext()) {
       throw new UnusableDataDefinitionException("More tokens but at end");
     }
+    
+    if (buildOutputJSON)
+    {
+    	outdef.append(" ]"); //fields array end
+    	outdef.append(" }"); 
+    }
+
+    //Error condition?
+    //if (projectedListCount > 0 && record_fields.size() != projectedListCount)
+
     // create record def
-    FieldDef root = new FieldDef("root", FieldType.RECORD, "none",
-        len, childLen, type_id==type_record, HpccSrcType.UNKNOWN,
-        record_fields.toArray(new FieldDef[0]));
-    RecordDef rslt = new RecordDef(def, root);
+    FieldDef root = new FieldDef("root", FieldType.RECORD, "none",len, childLen, type_id==type_record, HpccSrcType.UNKNOWN, record_fields.toArray(new FieldDef[0]));
+    RecordDef rslt = new RecordDef(def, root, buildOutputJSON ? outdef.toString() : def , projectedList);
+
     return rslt;
   }
   /**
@@ -194,6 +262,8 @@ public class RecordDef implements Serializable {
    * @return root definition
    */
   public FieldDef getRootDef() { return root; }
+  
+  public String [] getProjectedList() { return projectedList; };
   /**
    * String display of the record definition.
    * @return the definition in display form

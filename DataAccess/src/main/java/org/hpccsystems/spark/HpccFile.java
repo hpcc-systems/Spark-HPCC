@@ -25,6 +25,9 @@ public class HpccFile implements Serializable {
 
   private FilePart[] parts;
   private RecordDef recordDefinition;
+  private RecordDef projectedRecordDefinition;
+  private String[] projectList;
+
   /**
    * Constructor for the HpccFile.  Captures the information
    * from the DALI Server for the
@@ -35,12 +38,13 @@ public class HpccFile implements Serializable {
    * @param port the ESP port
    * @param user a valid account that has access to the file
    * @param pword a valid pass word for the account
+   * @param coma delimited select list
    * @throws HpccFileException
    */
   public HpccFile(String fileName, String protocol, String host,
-      String port, String user, String pword) throws HpccFileException{
-    this(fileName, protocol, host, port, user, pword,
-         new RemapInfo(0));
+      String port, String user, String pword, String projectlist) throws HpccFileException
+  {
+	  this(fileName, protocol, host, port, user, pword, projectlist, new RemapInfo(0));
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -54,18 +58,21 @@ public class HpccFile implements Serializable {
    * @param port the ESP port
    * @param user a valid account that has access to the file
    * @param pword a valid pass word for the account
+   * @param coma delimited select list
    * @param remap_info address and port re-mapping info for THOR cluster
    * @throws HpccFileException
    */
   public HpccFile(String fileName, String protocol, String host,
-      String port, String user, String pword, RemapInfo remap_info)
-      throws HpccFileException {
+      String port, String user, String pword, String projectlist, RemapInfo remap_info)
+      throws HpccFileException
+  {
     this.recordDefinition = new RecordDef();  // missing, the default
     Connection conn = new Connection(protocol, host, port);
     conn.setUserName(user);
     conn.setPassword(pword);
     HPCCWsDFUClient hpcc = HPCCWsDFUClient.get(conn);
-    try {
+    try
+    {
       DFUFileDetailInfo fd = hpcc.getFileDetails(fileName, "", true, false);
       DFUFilePartsOnClusterInfo[] fp = fd.getDFUFilePartsOnClusters();
       DFUFilePartInfo[] dfu_parts = fp[0].getDFUFileParts();
@@ -77,7 +84,10 @@ public class HpccFile implements Serializable {
       if (record_def_json==null) {
         throw new UnusableDataDefinitionException("Definiiton returned was null");
       }
-      this.recordDefinition = RecordDef.parseJsonDef(record_def_json);
+      if (!projectlist.isEmpty())
+    	  this.projectList = projectlist.trim().split("\\s*,\\s*");
+
+      this.recordDefinition = RecordDef.parseJsonDef(record_def_json, projectList);
     } catch (UnusableDataDefinitionException e) {
       throw new HpccFileException("Bad definition", e);
     } catch (Exception e) {
@@ -103,6 +113,14 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException
    */
   public RecordDef getRecordDefinition() throws HpccFileException {
+    return recordDefinition;
+  }
+  /**
+   * The record definition for a file on an HPCC cluster.
+   * @return
+   * @throws HpccFileException
+   */
+  public RecordDef getProjectedRecordDefinition() throws HpccFileException {
     return recordDefinition;
   }
   /**

@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 import org.hpccsystems.spark.FieldType;
+import org.omg.CORBA.TypeCode;
 
 import java.util.ArrayList;
 import java.io.Serializable;
@@ -22,6 +23,7 @@ public class TypeDef implements Serializable {
   private int childLen;
   private FieldType childType;
   private HpccSrcType childSrc;
+  private short typeCode;
   // flag values from eclhelper.hpp RtlFieldTypeMask enum definition
   final private static short flag_unsigned = 256;
   final private static short flag_unknownsize = 1024;
@@ -77,15 +79,16 @@ public class TypeDef implements Serializable {
   public TypeDef(long type_id, String typeName, int len,
       FieldType childType, int childLen, HpccSrcType childSrc,
       FieldDef[] defs) {
-    short type = (type_id < 10000) ? (short) type_id   : -1;
+    //short type = (type_id < 10000) ? (short) type_id   : -1;
+    typeCode = (type_id < 10000) ? (short) type_id   : -1;
     this.typeName = typeName;
     this.len = len;
     this.struct = defs;
-    this.unsignedFlag = type==type_uint;
+    this.unsignedFlag = typeCode==type_uint;
     this.childLen = childLen;
     this.childSrc = childSrc;
     this.childType = childType;
-    switch (type) {
+    switch (typeCode) {
       case type_boolean:
         this.fixedLength = true;
         this.type = FieldType.BOOLEAN;
@@ -167,7 +170,7 @@ public class TypeDef implements Serializable {
         this.fixedLength = false;
         this.type = FieldType.MISSING;
     }
-    switch (type) {
+    switch (typeCode) {
       case type_int:
       case type_uint:
       case type_real:
@@ -340,5 +343,12 @@ public class TypeDef implements Serializable {
     TypeDef rslt = new TypeDef(fieldType, typeName, length, childType,
         childLen, childSrc, fields);
     return rslt;
+  }
+
+  public String toJSON()
+  {
+    StringBuilder json = new StringBuilder();
+    json.append("\"").append(getTypeName()).append("\": { \"fieldType\": " + typeCode + ", \"length\": " + getLength() + " } ");
+    return json.toString();
   }
 }

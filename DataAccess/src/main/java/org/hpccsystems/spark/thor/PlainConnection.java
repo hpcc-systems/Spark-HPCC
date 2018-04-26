@@ -215,8 +215,9 @@ public class PlainConnection {
     sb.append("{\n \"kind\" : \"diskread\",\n \"fileName\" : \"");
     sb.append(this.filePart.getFilename());
     sb.append("\",\n \"input\" : ");
-    sb.append(this.recDef.getJsonInputDef());
+    sb.append(this.recDef.getJsonInputDef()); //declared DFU file definition
     sb.append(", \n \"output\" : ");
+    //sb.append("\"ty1\": {  \"fieldType\": 2,  \"length\": 4 }, \"fieldType\": 13, \"length\": 20, \"fields\": [  {   \"name\": \"sepal_length\",   \"type\": \"ty1\",   \"flags\": 2  },  {   \"name\": \"sepal_width\",   \"type\": \"ty1\",   \"flags\": 2  },  {   \"name\": \"petal_length\",   \"type\": \"ty1\",   \"flags\": 2  },  {   \"name\": \"petal_width\",   \"type\": \"ty1\",   \"flags\": 2  } ]}");
     sb.append(this.recDef.getJsonOutputDef());
     sb.append("\n }  }\n\n");
     return sb.toString();

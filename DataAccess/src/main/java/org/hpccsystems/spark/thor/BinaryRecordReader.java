@@ -85,7 +85,7 @@ public class BinaryRecordReader implements IRecordReader {
     Record rslt = null;
     try {
       FieldDef fd = this.recDef.getRootDef();
-      ParsedContent rec = parseRecord(this.curr, this.curr_pos, fd, this.defaultLE);
+      ParsedContent rec = parseRecord(this.curr, this.curr_pos, fd, this.defaultLE, recDef.getProjectedList());
       Content w = rec.getContent();
       if (!(w instanceof RecordContent)) {
         throw new HpccFileException("RecordContent not found");
@@ -107,17 +107,18 @@ public class BinaryRecordReader implements IRecordReader {
    * @return a ParsedContent container
    * @throws UnparsableContentException
    */
-  private static ParsedContent parseRecord(byte[] src, int start, FieldDef def,
-        boolean default_little_endian) throws UnparsableContentException {
-    Iterator<FieldDef> iter = def.getDefinitions();
-    ArrayList<Content> fields = new ArrayList<Content>(def.getNumFields());
+  private static ParsedContent parseRecord(byte[] src, int start, FieldDef def,  boolean default_little_endian, String [] includedfields) throws UnparsableContentException
+  {
+    Iterator<FieldDef> iter = def.getDefinitions(includedfields/*this should be a map*/);
+    ArrayList<Content> fields = new ArrayList<Content>(includedfields != null && includedfields.length != 0 ? includedfields.length : def.getNumFields());
     int consumed = 0;
     int dataLen = 0;
     int dataStart = 0;
     int dataStop = 0;
     boolean allFlag = false;
     String s = "";
-    while (iter.hasNext()) {
+    while (iter.hasNext())
+    {
       FieldDef fd = iter.next();
       int testLength = (fd.isFixed())  ? fd.getDataLen()   : 4;
       if (start+consumed+testLength > src.length) {
@@ -127,7 +128,8 @@ public class BinaryRecordReader implements IRecordReader {
         throw new UnparsableContentException(sb.toString());
       }
       // Embedded field lengths are little endian
-      switch (fd.getFieldType()) {
+      switch (fd.getFieldType())
+      {
         case INTEGER:
           // fixed number of bytes in type info
           long v = getInt(src, start+consumed, fd.getDataLen(),
@@ -172,10 +174,12 @@ public class BinaryRecordReader implements IRecordReader {
           // length specified in code points.  Fixed length UTF-16 may
           // have an illegal end as a high surrogate.  If so, terminal
           // high surrogate is blotted.
-          if (fd.isFixed()) {
-            dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed,
-                                   fd.getDataLen());
-          } else {
+          if (fd.isFixed())
+          {
+            dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed,                                   fd.getDataLen());
+          }
+          else
+          {
             int cp = ((int)getInt(src, start+consumed, 4, default_little_endian));
             dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed+4, cp);
             consumed += 4;
@@ -190,8 +194,7 @@ public class BinaryRecordReader implements IRecordReader {
         case RECORD:
           // Single instance of structure
           // Length for each field defines record length
-          ParsedContent this_rec = parseRecord(src, start+consumed,
-                                              fd, default_little_endian);
+          ParsedContent this_rec = parseRecord(src, start+consumed, fd, default_little_endian, null); //parent included, include all nested fields
           Content[] rec_flds=((RecordContent)this_rec.getContent()).asFieldArray();
           fields.add(new RecordContent(fd, rec_flds));
           consumed += this_rec.getConsumed();
@@ -335,8 +338,7 @@ public class BinaryRecordReader implements IRecordReader {
           dataStart = start + consumed;
           dataStop = dataStart + dataLen;
           while (dataStart < dataStop) {
-            ParsedContent child = parseRecord(src, dataStart,
-                                              fd, default_little_endian);
+            ParsedContent child = parseRecord(src, dataStart, fd, default_little_endian, includedfields);
             consumed += child.getConsumed();
             wr.add(new RecordContent(fd.recordName(),
                             ((RecordContent)child.getContent()).asFieldArray()));
@@ -349,8 +351,7 @@ public class BinaryRecordReader implements IRecordReader {
           throw new UnparsableContentException(msg);
       }
     }
-    RecordContent rc = new RecordContent(def.getFieldName(),
-                                         fields.toArray(new Content[0]));
+    RecordContent rc = new RecordContent(def.getFieldName(), fields.toArray(new Content[0]));
     ParsedContent rslt = new ParsedContent(rc, consumed);
     return rslt;
   }

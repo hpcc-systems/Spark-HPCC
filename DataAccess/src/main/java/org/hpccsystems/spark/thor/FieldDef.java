@@ -30,6 +30,7 @@ public class FieldDef implements Serializable {
   private int len;
   private int childLen;
   private boolean fixedLength;
+  private int flags;
   //
   private static final String FieldNameName = "name";
   private static final String FieldTypeName = "type";
@@ -44,6 +45,7 @@ public class FieldDef implements Serializable {
     this.len = 0;
     this.childLen = 0;
     this.fixedLength = false;
+    this.flags = 0;
   }
   /**
    * @param fieldName the name for the field or set or structure
@@ -254,25 +256,66 @@ public class FieldDef implements Serializable {
    * @return the FieldDef object
    */
   public FieldDef getDef(int ndx) { return this.defs[ndx]; }
+
   /**
    * An iterator to walk though the type definitions that compose
    * this type.
    * @return an iterator returning FieldDef objects
    */
-  public Iterator<FieldDef> getDefinitions() {
-    final FieldDef[] defRef = this.defs;
-    Iterator<FieldDef> rslt = new Iterator<FieldDef>() {
+  public Iterator<FieldDef> getDefinitions()
+  {
+    return createDefIterator(defs);
+  }
+  /**
+   * An iterator to walk though the type definitions filtered by projected list.
+   * @return an iterator returning FieldDef objects
+   */
+  public Iterator<FieldDef> getDefinitions(String [] projectedlist/*this should be a map*/)
+  {
+    if (projectedlist != null && projectedlist.length != 0)
+    {
+        FieldDef [] projected = new FieldDef [projectedlist.length];
+
+        int filteredIndex = 0;
+        for(FieldDef fieldDefinition : defs)
+        {
+            boolean included = false;
+            for (String projectedfield : projectedlist)
+            {
+                if (fieldDefinition.getFieldName().equals(projectedfield))
+                {
+                    included = true;
+                    break;
+                }
+            }
+            if (included)
+                projected[filteredIndex++] = fieldDefinition;
+        }
+        return createDefIterator(projected);
+    }
+    else
+      return createDefIterator(defs);
+  }
+
+  public Iterator<FieldDef> createDefIterator(FieldDef[] thedefs)
+  {
+    final FieldDef[] defRef = thedefs;
+    Iterator<FieldDef> rslt = new Iterator<FieldDef>()
+    {
       int pos = 0;
       FieldDef[] copy = defRef;
-      public boolean hasNext() {
+      public boolean hasNext()
+      {
         return (pos<copy.length)  ? true  : false;
       }
-      public FieldDef next() {
+      public FieldDef next()
+      {
         return copy[pos++];
       }
     };
     return rslt;
   }
+
   /**
    * Pick up a field definition from the JSON record definiton string.
    * The definitions are objects in the fields JSON array pair.  The
@@ -310,6 +353,7 @@ public class FieldDef implements Serializable {
       if (FieldTypeName.equals(curr.getName())) {
         typeName = curr.getString();
       }
+      //do we care about xpath and / or flags?
       curr = toks_iter.next();
     }
     if (!toks_iter.hasNext()) {
@@ -328,5 +372,16 @@ public class FieldDef implements Serializable {
     TypeDef typ = type_dict.get(typeName);
     FieldDef rslt = new FieldDef(fieldName, typ);
     return rslt;
+  }
+
+  public String toJSON()
+  {
+      String json;
+
+      json ="{\n\t\"name\":\t\"" + this.fieldName + "\",\n" +
+              //"\t\"type\":\t\"" + this.typeName + "\"\n}" +
+              "\t\"type\":\t\"" + "ty1" + "\"," +
+              "\t\"flags\":\t2\n}";
+      return json;
   }
 }
