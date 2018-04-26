@@ -36,7 +36,7 @@ public class RDDTest {
     System.out.flush();
     String sparkHome = br.readLine();
     conf.setSparkHome(sparkHome);
-    System.out.print("Fiull path to JAPI jar: ");
+    System.out.print("Full path to JAPI jar: ");
     System.out.flush();
     String japi_jar = br.readLine();
     System.out.print("Full path to Spark-HPCC jar: ");
@@ -74,12 +74,15 @@ public class RDDTest {
     System.out.print("Base IP or empty: ");
     System.out.flush();
     String base_ip = br.readLine();
+    System.out.print("Project list (comma delimited): ");
+    System.out.flush();
+    String projectList = br.readLine();
     HpccFile hpcc;
     if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,projectList);
     } else {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, ri);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, projectList, ri);
     }
     System.out.println("Getting file parts");
     FilePart[] parts = hpcc.getFileParts();
