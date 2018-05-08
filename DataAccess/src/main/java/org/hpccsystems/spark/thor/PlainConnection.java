@@ -246,7 +246,9 @@ public class PlainConnection {
     sb.append(" \n \"node\" : ");
     sb.append("{\n \"kind\" : \"diskread\",\n \"fileName\" : \"");
     sb.append(this.filePart.getFilename());
-    sb.append("\",\n \"input\" : ");
+    sb.append("\", \n");
+    if (this.filePart.isCompressed()) sb.append(" \"compressed\": \"true\", ");
+    sb.append(" \"input\" : ");
     sb.append(this.recDef.getJsonInputDef());
     sb.append(", \n \"output\" : ");
     sb.append(this.recDef.getJsonOutputDef());
@@ -285,8 +287,8 @@ public class PlainConnection {
       if (len == 0) return 0;
       byte flag = dis.readByte();
       if (flag==hyphen[0]) {
-        if (len<5) throw new HpccFileException("Failed with no message sent");
-        int msgLen = dis.readInt();
+        if (len<2) throw new HpccFileException("Failed with no message sent");
+        int msgLen = len-1;
         byte[] msg = new byte[msgLen];
         this.dis.read(msg);
         String message = new String(msg, hpccSet);
