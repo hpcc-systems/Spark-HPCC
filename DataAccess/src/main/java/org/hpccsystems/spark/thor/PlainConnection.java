@@ -214,7 +214,9 @@ public class PlainConnection {
     sb.append("{ \"format\" : \"binary\", \"node\" : ");
     sb.append("{\n \"kind\" : \"diskread\",\n \"fileName\" : \"");
     sb.append(this.filePart.getFilename());
-    sb.append("\",\n \"input\" : ");
+    sb.append("\", \n  \"compressed\": \"");
+    sb.append((this.filePart.isCompressed()) ?"true"  :"false");
+    sb.append("\", \n \"input\" : ");
     sb.append(this.recDef.getJsonInputDef());
     sb.append(", \n \"output\" : ");
     sb.append(this.recDef.getJsonOutputDef());
@@ -246,9 +248,9 @@ public class PlainConnection {
     sb.append(" \n \"node\" : ");
     sb.append("{\n \"kind\" : \"diskread\",\n \"fileName\" : \"");
     sb.append(this.filePart.getFilename());
-    sb.append("\", \n");
-    if (this.filePart.isCompressed()) sb.append(" \"compressed\": \"true\", ");
-    sb.append(" \"input\" : ");
+    sb.append("\", \n  \"compressed\": \"");
+    sb.append((this.filePart.isCompressed()) ?"true"  :"false");
+    sb.append("\", \n \"input\" : ");
     sb.append(this.recDef.getJsonInputDef());
     sb.append(", \n \"output\" : ");
     sb.append(this.recDef.getJsonOutputDef());

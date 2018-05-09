@@ -47,12 +47,11 @@ public class FilePart implements Partition, Serializable {
   private FilePart(String ip0, String ipx, String dir, String name,
       int this_part, int num_parts, long part_size, String mask,
       int clear, int ssl, boolean compressed_flag) {
-    String p_str = Integer.toString(this_part);
-    String n_str = Integer.toString(num_parts);
     String f_str = dir + "/" + mask;
     this.primary_ip = ip0;
     this.secondary_ip = ipx;
-    this.file_name = f_str.replace("$P$", p_str).replace("$N$", n_str);
+    this.file_name = f_str.replace("$P$", Integer.toString(this_part))
+                          .replace("$N$", Integer.toString(num_parts));
     this.this_part = this_part;
     this.num_parts = num_parts;
     this.part_size = part_size;
