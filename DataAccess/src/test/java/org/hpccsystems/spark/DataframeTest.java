@@ -1,16 +1,18 @@
 package org.hpccsystems.spark;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.Arrays;
+
 //import scala.collection.mutable.ArraySeq;
 import org.apache.spark.SparkConf;
-import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.Row;
-import org.hpccsystems.spark.thor.RemapInfo;
 import org.apache.spark.sql.Dataset;
-import scala.collection.Seq;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SparkSession;
+import org.hpccsystems.spark.thor.RemapInfo;
+
 import scala.collection.JavaConverters;
-import java.util.Arrays;
-import java.io.InputStreamReader;
-import java.io.BufferedReader;
+import scala.collection.Seq;
 
 public class DataframeTest {
 
