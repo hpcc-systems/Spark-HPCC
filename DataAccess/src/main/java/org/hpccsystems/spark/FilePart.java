@@ -28,6 +28,7 @@ public class FilePart implements Partition, Serializable {
   private int clearPort;
   private int sslPort;
   private long part_size;
+  private boolean isCompressed;
 
   /**
    * Construct the file part, used by makeParts
@@ -41,20 +42,22 @@ public class FilePart implements Partition, Serializable {
    * @param mask mask for constructing full file name
    * @param clear port number of clear communications
    * @param ssl port number of ssl communications
+   * @param compressed_flag is the file compressed?
    */
   private FilePart(String ip0, String ipx, String dir, String name,
       int this_part, int num_parts, long part_size, String mask,
-      int clear, int ssl) {
-    String p_str = Integer.toString(this_part);
+      int clear, int ssl, boolean compressed_flag) {
     String f_str = dir + "/" + mask;
     this.primary_ip = ip0;
     this.secondary_ip = ipx;
-    this.file_name = f_str.replace("$P$", p_str);
+    this.file_name = f_str.replace("$P$", Integer.toString(this_part))
+                          .replace("$N$", Integer.toString(num_parts));
     this.this_part = this_part;
     this.num_parts = num_parts;
     this.part_size = part_size;
     this.clearPort = clear;
     this.sslPort = ssl;
+    this.isCompressed = compressed_flag;
   }
   /**
    * Empty constructor used by serialization
@@ -99,7 +102,11 @@ public class FilePart implements Partition, Serializable {
    * @return size
    */
   public long getPartSize() { return this.part_size; }
-
+  /**
+   * Is this a compressed file?
+   * @return true when the dataset is compressed
+   */
+  public boolean isCompressed() {return this.isCompressed;}
   /* (non-Javadoc)
    * @see org.apache.spark.Partition#index()
    */
@@ -146,7 +153,7 @@ public class FilePart implements Partition, Serializable {
    */
   public static FilePart[] makeFileParts(int num_parts, String dir,
       String name, String mask, DFUFilePartInfo[] parts,
-      ClusterRemapper cr) throws HpccFileException {
+      ClusterRemapper cr, boolean compressed_flag) throws HpccFileException {
     FilePart[] rslt = new FilePart[num_parts];
     Arrays.sort(parts, FilePartInfoComparator);
     int copies = parts.length / num_parts;
@@ -164,7 +171,8 @@ public class FilePart implements Partition, Serializable {
       rslt[i] = new FilePart(cr.revisePrimaryIP(primary),
           cr.reviseSecondaryIP(secondary),
           dir, name, i+1, num_parts, partSize, mask,
-          cr.reviseClearPort(primary), cr.reviseSslPort(primary));
+          cr.reviseClearPort(primary), cr.reviseSslPort(primary),
+          compressed_flag);
     }
     return rslt;
   }

@@ -72,7 +72,7 @@ public class HpccFile implements Serializable {
       ClusterRemapper cr = ClusterRemapper.makeMapper(remap_info, dfu_parts,
           fd.getNumParts());
       this.parts = FilePart.makeFileParts(fd.getNumParts(), fd.getDir(),
-          fd.getFilename(), fd.getPathMask(), dfu_parts, cr);
+          fd.getFilename(), fd.getPathMask(), dfu_parts, cr, fd.getIsCompressed());
       String record_def_json = fd.getJsonInfo();
       if (record_def_json==null) {
         throw new UnusableDataDefinitionException("Definiiton returned was null");
