@@ -18,6 +18,7 @@ package org.hpccsystems.spark;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Iterator;
 
 import org.apache.spark.sql.types.DataTypes;
@@ -63,14 +64,16 @@ public class RecordDef implements Serializable {
   /**
    * Construct a record definition.  Normally used by the static
    * function parseJsonDef.
-   * @param def the Json string used as the input and default output
-   * definition.
+   * @param defThor the Json string used as the input definition for
+   * the data on THOR.
+   * @param defContent the Json string used to define the data to be
+   * sent to this client.
    * @param root the definition parsed into FieldDef objects.  The input
    * is the root definition for the record.
    */
-  public RecordDef(String def, FieldDef root) {
-    this.input_def = def;
-    this.output_def = def;  // default output is all content
+  public RecordDef(String defThor, String defContent, FieldDef root) {
+    this.input_def = defThor;
+    this.output_def = defContent;
     this.root = root;
   }
   /**
@@ -78,18 +81,26 @@ public class RecordDef implements Serializable {
    * string.  We have a type definition object composed by one or
    * more type definition object pairs.  The top level type definition
    * has fieldType, length, and fields pairs.
-   * @param def the JSON record type defintion returned from WsDfu
+   * @param defThor the JSON record type definition returned from WsDfu
+   * @param cp a column pruner for selecting specific columns of datga
    * @return a new record definition
    */
-  static public RecordDef parseJsonDef(String def)
+  static public RecordDef fromJsonDef(String defThor, ColumnPruner cp)
       throws UnusableDataDefinitionException {
-    ArrayList<DefToken> toks = new ArrayList<DefToken>();
+    DefToken[] toks = new DefToken[0];
     try {
-      toks = DefToken.parseDefString(def);
+      toks = DefToken.parseDefString(defThor);
     } catch (JsonParseException e) {
       throw new UnusableDataDefinitionException("Failed to parse def", e);
     }
-    Iterator<DefToken> toks_iter = toks.iterator();
+    toks = cp.pruneDefTokens(toks);
+    StringBuilder def_sb = new StringBuilder();
+    Iterator<DefToken> toks_iter = Arrays.asList(toks).iterator();
+    while (toks_iter.hasNext()) {
+      def_sb.append(toks_iter.next().toJson());
+    }
+    String defContent = def_sb.toString();
+    toks_iter = Arrays.asList(toks).iterator();
     HashMap<String, TypeDef> types = new HashMap<String, TypeDef>();
     ArrayList<FieldDef> record_fields = new ArrayList<FieldDef>();
     // have an unnamed type definition object with 1 or more pairs of
@@ -176,7 +187,7 @@ public class RecordDef implements Serializable {
     FieldDef root = new FieldDef("root", FieldType.RECORD, "none",
         len, childLen, type_id==type_record, HpccSrcType.UNKNOWN,
         record_fields.toArray(new FieldDef[0]));
-    RecordDef rslt = new RecordDef(def, root);
+    RecordDef rslt = new RecordDef(defThor, defContent, root);
     return rslt;
   }
   /**
@@ -190,16 +201,6 @@ public class RecordDef implements Serializable {
    * @return the output definition
    */
   public String getJsonOutputDef() { return output_def; }
-  /**
-   * Replace the current output definition.
-   * @param new_def the new definition, a JSON string
-   * @return the prior definition
-   */
-  public String setJsonOutputDef(String new_def) {
-    String old = this.output_def;
-    this.output_def = new_def;
-    return old;
-  }
   /**
    * The record definition object
    * @return root definition
