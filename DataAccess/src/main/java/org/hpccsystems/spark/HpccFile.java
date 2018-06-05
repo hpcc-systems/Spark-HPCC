@@ -50,12 +50,13 @@ public class HpccFile implements Serializable {
    * @param port the ESP port
    * @param user a valid account that has access to the file
    * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of colomn names with dotted names
    * @throws HpccFileException
    */
   public HpccFile(String fileName, String protocol, String host,
-      String port, String user, String pword) throws HpccFileException{
-    this(fileName, protocol, host, port, user, pword,
-         new RemapInfo(0));
+          String port, String user, String pword, String targetColumnList)
+          throws HpccFileException{
+    this(fileName, protocol, host, port, user, pword, targetColumnList, new RemapInfo(0));
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -69,13 +70,16 @@ public class HpccFile implements Serializable {
    * @param port the ESP port
    * @param user a valid account that has access to the file
    * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of column names in dotted
+   * notation for columns within compound columns.
    * @param remap_info address and port re-mapping info for THOR cluster
    * @throws HpccFileException
    */
   public HpccFile(String fileName, String protocol, String host,
-      String port, String user, String pword, RemapInfo remap_info)
-      throws HpccFileException {
+      String port, String user, String pword, String targetColumnList,
+      RemapInfo remap_info) throws HpccFileException {
     this.recordDefinition = new RecordDef();  // missing, the default
+    ColumnPruner cp = new ColumnPruner(targetColumnList);
     Connection conn = new Connection(protocol, host, port);
     conn.setUserName(user);
     conn.setPassword(pword);
@@ -92,7 +96,7 @@ public class HpccFile implements Serializable {
       if (record_def_json==null) {
         throw new UnusableDataDefinitionException("Definiiton returned was null");
       }
-      this.recordDefinition = RecordDef.parseJsonDef(record_def_json);
+      this.recordDefinition = RecordDef.fromJsonDef(record_def_json, cp);
     } catch (UnusableDataDefinitionException e) {
       throw new HpccFileException("Bad definition", e);
     } catch (Exception e) {

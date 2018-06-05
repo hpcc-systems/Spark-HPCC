@@ -33,6 +33,9 @@ public class HpccFileTest {
     System.out.print("pass word: ");
     System.out.flush();
     String pword = br.readLine();
+    System.out.print("Field list or empty: ");
+    System.out.flush();
+    String fieldList = br.readLine();
     System.out.print("Number of nodes for remap or empty: ");
     System.out.flush();
     String nodes = br.readLine();
@@ -41,10 +44,11 @@ public class HpccFileTest {
     String base_ip = br.readLine();
     HpccFile hpcc;
     if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList);
     } else {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, ri);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
+          fieldList, ri);
     }
     System.out.println("Getting file parts");
     FilePart[] parts = hpcc.getFileParts();
