@@ -22,19 +22,25 @@ import org.hpccsystems.spark.thor.DefEntry;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 
 /**
- * Prune columns from the output request format.  The column
+ * Prune columns from the output request format.  Columns are pruned
+ * that employ unsupported data types or that are not named by a column
+ * selection parameter that has a list of columns.  The column
  * selection parameter string is a comma separated list of
  * field names.  Nested fields are selected with the usual
  * dot notation (e.g., foo.bar for the bar field in a foo field).
  * All columns are selected for a structure field when no columns are
  * specified (e.g., foo where foo is a record type).  Selection column
  * names that do not exist are ignored.  If the selection string does not
- * select any column, then all columns are returned.
+ * select any column, then all columns are returned unless dropped because
+ * of unsupported data types.
+ *
+ * The output types for certain data types is adjusted in the screening
+ * process.  For instance, the QSTRING compressed string is returned as a
+ * string.
  */
 public class ColumnPruner implements Serializable {
   private final static long serialVersionUID = 1L;
   private String fieldListString;
-  private boolean allFields;
   private transient TargetColumn targetContentRoot;
   /**
    * Contruct a pruner to remove fields from the output definition of a remote
@@ -47,17 +53,10 @@ public class ColumnPruner implements Serializable {
    */
   public ColumnPruner(String commaSepFieldNamelist) {
     this.fieldListString = commaSepFieldNamelist;
-    this.allFields = "".equals(commaSepFieldNamelist);
   }
   /**
-   * Protected constructor for serialization/de-serialization support.
-   */
-  protected ColumnPruner() {
-    this.fieldListString = "";
-    this.allFields = true;
-  }
-  /**
-   * Prune the definition tokens to match the field list.
+   * Prune the definition tokens to match the field list if
+   * present and to remove unsupported types..
    * @param toks the complete set of tokens
    * @return the revised set with the pruned fields and unused
    * type information removed.
@@ -66,9 +65,7 @@ public class ColumnPruner implements Serializable {
    */
   public DefToken[] pruneDefTokens(DefToken[] toks)
       throws UnusableDataDefinitionException {
-    if (this.allFields) return toks;
     if (targetContentRoot==null) prepPruner();
-    // Build a detailed map of the definition tokens
     DefToken[] rslt = DefEntry.pruneDefTokens(toks, targetContentRoot);
     return rslt;
   }
@@ -82,8 +79,8 @@ public class ColumnPruner implements Serializable {
   }
   //
   private void prepPruner() {
-    if (this.allFields) return;   // nothing to do
     String[] compound_names = this.fieldListString.split(",");
+    // if fieldListString was empty, then array has 0 entries
     for (int i=0; i<compound_names.length; i++) {
       compound_names[i] = compound_names[i].trim().toLowerCase();
     }
@@ -100,6 +97,6 @@ public class ColumnPruner implements Serializable {
         cn = cn.getOrCreateColumnWithName(dot_names[i][j]);
       }
     }
-    // root object ready
+    // root object ready.  May be an "all fields" selection
   }
 }

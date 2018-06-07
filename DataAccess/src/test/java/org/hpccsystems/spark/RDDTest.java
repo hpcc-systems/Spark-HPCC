@@ -79,14 +79,14 @@ public class RDDTest {
     String base_ip = br.readLine();
     HpccFile hpcc;
     if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList);
+      hpcc = new HpccFile(testName,protocol,esp_ip,port,user,pword,fieldList,0);
     } else {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
       hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-          fieldList, ri);
+          fieldList, ri, 0);
     }
     System.out.println("Getting file parts");
-    FilePart[] parts = hpcc.getFileParts();
+    HpccPart[] parts = hpcc.getFileParts();
     System.out.println("Getting record definition");
     RecordDef rd = hpcc.getRecordDefinition();
     System.out.println(rd.toString());

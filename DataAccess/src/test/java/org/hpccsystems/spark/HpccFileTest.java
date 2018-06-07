@@ -4,7 +4,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
+import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FieldDef;
+import org.hpccsystems.spark.thor.FileFilter;
+import org.hpccsystems.spark.thor.PlainConnection;
 import org.hpccsystems.spark.thor.RemapInfo;
 
 /**
@@ -36,27 +39,35 @@ public class HpccFileTest {
     System.out.print("Field list or empty: ");
     System.out.flush();
     String fieldList = br.readLine();
+    System.out.print("File filter expression or empty: ");
+    System.out.flush();
+    String filterExpression = br.readLine();
     System.out.print("Number of nodes for remap or empty: ");
     System.out.flush();
     String nodes = br.readLine();
     System.out.print("Base IP or empty: ");
     System.out.flush();
     String base_ip = br.readLine();
+    System.out.print("Specify file part to read (1 based): ");
+    System.out.flush();
+    String filePart = br.readLine();
     HpccFile hpcc;
     if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
+                          fieldList, new FileFilter(filterExpression), 0);
     } else {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
       hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-          fieldList, ri);
+          fieldList, new FileFilter(filterExpression), ri, 0);
     }
+    System.out.println((hpcc.isIndex())  ? "Index file"  : "Sequential file");
     System.out.println("Getting file parts");
-    FilePart[] parts = hpcc.getFileParts();
+    HpccPart[] parts = hpcc.getFileParts();
     for (int i=0; i<parts.length; i++) {
-      System.out.println(parts[i].getFilename() + ":"
-              + parts[i].getPrimaryIP()+ ":"
-              + parts[i].getSecondaryIP() + ": "
-              + parts[i].getThisPart());
+      System.out.println(parts[i].getPartitionInfo().getFilename() + ":"
+              + parts[i].getPartitionInfo().getPrimaryIP()+ ":"
+              + parts[i].getPartitionInfo().getSecondaryIP() + ": "
+              + parts[i].getPartitionInfo().getThisPart());
     }
     System.out.println("Getting JSON definition");
     System.out.println(hpcc.getRecordDefinition().getJsonInputDef());
@@ -70,9 +81,15 @@ public class HpccFileTest {
     }
     System.out.print("Schema: ");
     System.out.println(rd.asSchema().toString());
-    System.out.println("Reading block from part 2");
-    org.hpccsystems.spark.thor.PlainConnection pc
-          = new org.hpccsystems.spark.thor.PlainConnection(parts[1], rd);
+    int partIndex = 0;
+    try {
+      partIndex = Integer.parseInt(filePart) - 1;
+      System.out.println("Reading block from part " + filePart);
+    } catch(Exception e) {
+      System.out.println("Bad input, reading block from part 1");
+    }
+    DataPartition dp = parts[partIndex].getPartitionInfo();
+    PlainConnection pc = new PlainConnection(dp, rd);
     System.out.print("Transaction : ");
     System.out.println(pc.getTrans());
     System.out.println(pc.getIP());
@@ -89,6 +106,8 @@ public class HpccFileTest {
       System.out.println(sb.toString());
       for (int i=0; i<block.length; i+=16) {
         sb.delete(0, sb.length());
+        sb.append(String.format("%06d %04X", i, i));
+        sb.append("  ");
         for (int j=0; j<16 && i+j<block.length; j++) {
           sb.append(String.format("%02X ", block[i+j]));
           sb.append(" ");

@@ -18,7 +18,6 @@ package org.hpccsystems.spark.thor;
 import java.io.IOException;
 import java.nio.charset.Charset;
 
-import org.hpccsystems.spark.FilePart;
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.spark.RecordDef;
 
@@ -32,7 +31,7 @@ public class PlainConnection {
   private boolean simulateFail;
   private byte[] cursorBin;
   private int handle;
-  private FilePart filePart;
+  private DataPartition dataPart;
   private RecordDef recDef;
   private java.io.DataInputStream dis;
   private java.io.DataOutputStream dos;
@@ -43,12 +42,12 @@ public class PlainConnection {
   private static final byte[] uc_J = "J".getBytes(hpccSet);
   /**
    * A plain socket connect to a THOR node for remote read
-   * @param filePart the remote file name and IP
+   * @param hpccPart the remote file name and IP
    * @param rd the JSON definition for the read input and output
    */
-  public PlainConnection(FilePart fp, RecordDef rd) {
+  public PlainConnection(DataPartition dp, RecordDef rd) {
     this.recDef = rd;
-    this.filePart = fp;
+    this.dataPart = dp;
     this.active = false;
     this.closed = false;
     this.handle = 0;
@@ -59,17 +58,17 @@ public class PlainConnection {
    * The remote file name.
    * @return file name
    */
-  public String getFilename() { return this.filePart.getFilename(); }
+  public String getFilename() { return this.dataPart.getFilename(); }
   /**
    * The primary IP for the file part
    * @return IP address
    */
-  public String getIP() { return this.filePart.getPrimaryIP(); }
+  public String getIP() { return this.dataPart.getPrimaryIP(); }
   /**
    * The port number for the remote read service
    * @return port number
    */
-  public int getPort() { return this.filePart.getClearPort(); }
+  public int getPort() { return this.dataPart.getClearPort(); }
   /**
    * The read transaction in JSON format
    * @return read transaction
@@ -191,7 +190,7 @@ public class PlainConnection {
     this.handle = 0;
     this.cursorBin = new byte[0];
     try {
-      sock = new java.net.Socket(this.getIP(), this.filePart.getClearPort());
+      sock = new java.net.Socket(this.getIP(), this.dataPart.getClearPort());
     } catch (java.net.UnknownHostException e) {
       throw new HpccFileException("Bad file part addr "+this.getIP(), e);
     } catch (java.io.IOException e) {
@@ -222,14 +221,22 @@ public class PlainConnection {
    */
   private String makeInitialRequest() {
     StringBuilder sb = new StringBuilder(50
-        + this.filePart.getFilename().length()
+        + this.dataPart.getFilename().length()
         + this.recDef.getJsonInputDef().length()
         + this.recDef.getJsonOutputDef().length());
     sb.append("{ \"format\" : \"binary\", \"node\" : ");
-    sb.append("{\n \"kind\" : \"diskread\",\n \"fileName\" : \"");
-    sb.append(this.filePart.getFilename());
-    sb.append("\", \n  \"compressed\": \"");
-    sb.append((this.filePart.isCompressed()) ?"true"  :"false");
+    sb.append("{\n \"kind\" : \"");
+    sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
+    sb.append("\",\n \"fileName\" : \"");
+    sb.append(this.dataPart.getFilename());
+    sb.append("\", \n");
+    if (!this.dataPart.getFilter().isEmpty()) {
+      sb.append(" ");
+      sb.append(this.dataPart.getFilter().toJsonObject());
+      sb.append(",\n");
+    }
+    sb.append(" \"compressed\": \"");
+    sb.append((this.dataPart.isCompressed()) ?"true"  :"false");
     sb.append("\", \n \"input\" : ");
     sb.append(this.recDef.getJsonInputDef());
     sb.append(", \n \"output\" : ");
@@ -250,7 +257,7 @@ public class PlainConnection {
   }
   private String makeCursorRequest() {
     StringBuilder sb = new StringBuilder(80
-        + this.filePart.getFilename().length()
+        + this.dataPart.getFilename().length()
         + this.recDef.getJsonInputDef().length()
         + this.recDef.getJsonOutputDef().length()
         + (int)(this.cursorBin.length*1.4));
@@ -260,10 +267,18 @@ public class PlainConnection {
     sb.append(w);
     sb.append("\" }, ");
     sb.append(" \n \"node\" : ");
-    sb.append("{\n \"kind\" : \"diskread\",\n \"fileName\" : \"");
-    sb.append(this.filePart.getFilename());
-    sb.append("\", \n  \"compressed\": \"");
-    sb.append((this.filePart.isCompressed()) ?"true"  :"false");
+    sb.append("{\n \"kind\" : \"");
+    sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
+    sb.append("\",\n \"fileName\" : \"");
+    sb.append(this.dataPart.getFilename());
+    sb.append("\", \n");
+    if (!this.dataPart.getFilter().isEmpty()) {
+      sb.append(" ");
+      sb.append(this.dataPart.getFilter().toJsonObject());
+      sb.append(",\n");
+    }
+    sb.append(" \"compressed\": \"");
+    sb.append((this.dataPart.isCompressed()) ?"true"  :"false");
     sb.append("\", \n \"input\" : ");
     sb.append(this.recDef.getJsonInputDef());
     sb.append(", \n \"output\" : ");

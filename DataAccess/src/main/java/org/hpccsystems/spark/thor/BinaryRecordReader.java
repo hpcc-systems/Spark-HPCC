@@ -26,7 +26,6 @@ import org.hpccsystems.spark.BinarySeqContent;
 import org.hpccsystems.spark.BooleanContent;
 import org.hpccsystems.spark.BooleanSeqContent;
 import org.hpccsystems.spark.Content;
-import org.hpccsystems.spark.FilePart;
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.spark.IntegerContent;
 import org.hpccsystems.spark.IntegerSeqContent;
@@ -62,14 +61,14 @@ public class BinaryRecordReader implements IRecordReader {
    * @param fp the file part to be read
    * @param rd the record def
    */
-  public BinaryRecordReader(FilePart fp, RecordDef rd) {
+  public BinaryRecordReader(DataPartition dp, RecordDef rd) {
     this.recDef = rd;
-    this.pc = new PlainConnection(fp, rd);
+    this.pc = new PlainConnection(dp, rd);
     this.curr = new byte[0];
     this.curr_pos = 0;
     this.active = false;
     this.pos = 0;
-    this.part = fp.getThisPart();
+    this.part = dp.getThisPart();
     this.defaultLE = true;
   }
 

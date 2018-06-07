@@ -18,6 +18,7 @@ package org.hpccsystems.spark.thor;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.StringTokenizer;
 
 import org.hpccsystems.spark.HpccFileException;
@@ -30,73 +31,54 @@ import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
  */
 public class AddrRemapper extends ClusterRemapper {
   private HashMap<String, String> ip_tab;
-
-  public AddrRemapper(RemapInfo ri, DFUFilePartInfo[] fpiList, int parts)
+  /**
+   * Remapping of the IP addresses for virtual clusters.  Note that there
+   * can be more parts than nodes or fewer parts than nodes, though usually
+   * the number of parts equals the number of nodes for files and is one
+   * higher for keys.
+   * @param ri re-mapping information for an address re-mapper
+   * @param fpiList file part list for the file is used as the source of IP values
+   * that need to be mapped
+   * @throws HpccFileException when something is wrong with the info
+   */
+  public AddrRemapper(RemapInfo ri, DFUFilePartInfo[] fpiList)
       throws HpccFileException {
     super(ri);
     if (!ri.isIpAliasing()) {
       throw new IllegalArgumentException("Inappropriate type of re-mapping info");
     }
-    int primaries = 0;
-    for (DFUFilePartInfo fpi : fpiList) {
-      if (fpi.getCopy() == 1) primaries++;
+    HashSet<String> ip_set = new HashSet<String>(fpiList.length * 2);
+    for (DFUFilePartInfo fp : fpiList) {
+      ip_set.add(fp.getIp());
     }
-    if (primaries != parts) {
-      throw new HpccFileException("Number of primary != number of parts");
-    }
-    int pos = 0;
-    DFUFilePartInfo[] primary_list = new DFUFilePartInfo[primaries];
-    for (DFUFilePartInfo fpi : fpiList) {
-      if (fpi.getCopy()==1) primary_list[pos++] = fpi;
-    }
-    Arrays.sort(primary_list, FilePartInfoComparator);  //copy then part
-    short[][] ip_list_parts = new short[ri.getNodes()][];
-    ip_list_parts[0] = new short[4];
-    StringTokenizer st = new StringTokenizer(primary_list[0].getIp(), ".");
-    if (st.countTokens()!=4) {
-      throw new HpccFileException("Incomplete IP addresses for parts");
-    }
-    pos = 0;
-    while (st.hasMoreTokens()) {
-      ip_list_parts[0][pos] = Short.parseShort(st.nextToken());
-      pos++;
-    }
-    for (int i=1; i<ri.getNodes(); i++) {
-      st = new StringTokenizer(primary_list[i].getIp(), ".");
-      if (st.countTokens() != 4) {
-        throw new HpccFileException("Incomplete IP addresses for parts");
-      }
-      pos = 0;
-      ip_list_parts[i] = new short[4];
-      while (st.hasMoreTokens()) {
-        ip_list_parts[i][pos] = Short.parseShort(st.nextToken());
-        pos++;
-      }
-      if (ip_list_parts[i][0] >= ip_list_parts[i-1][0]
-       && ip_list_parts[i][1] >= ip_list_parts[i-1][1]
-       && ip_list_parts[i][2] >= ip_list_parts[i-1][2]
-       && ip_list_parts[i][3] >  ip_list_parts[i-1][3]) continue;
-      throw new HpccFileException("Bad IP to part number relation");
+    String[] ip_list = ip_set.toArray(new String[0]);
+    Arrays.sort(ip_list);
+    if (ip_list.length > ri.getNodes()) {
+      StringBuilder sb = new StringBuilder();
+      sb.append("Too many addresses, need ");
+      sb.append(ip_list.length);
+      sb.append(" but have only ");
+      sb.append(ri.getNodes());
+      throw new HpccFileException(sb.toString());
     }
     short[] target_parts = new short[4];
-    st = new StringTokenizer(ri.getBaseIp(), ".");
+    StringTokenizer st = new StringTokenizer(ri.getBaseIp(), ".");
     if (st.countTokens() != 4) {
       throw new IllegalArgumentException("Incomplete IP address for target");
     }
-    pos = 0;
+    int pos = 0;
     while (st.hasMoreTokens()) {
       target_parts[pos] = Short.parseShort(st.nextToken());
       pos++;
     }
-    // networks are no longer class based, no overflow not checked
-    ip_tab = new HashMap<String, String>(ri.getNodes()*2);
-    for (int i=0; i<ri.getNodes(); i++) {
+    ip_tab = new HashMap<String, String>(ip_list.length*2);
+    for (int i=0; i<ip_list.length; i++) {
       StringBuilder sb = new StringBuilder();
       for (int j=0; j<4; j++) {
         sb.append(target_parts[j]);
         if (j<3) sb.append(".");
       }
-      ip_tab.put(primary_list[i].getIp(), sb.toString());
+      ip_tab.put(ip_list[i], sb.toString());
       target_parts[3]++;
       if (target_parts[3] < 256) continue;
       target_parts[3] = 0;

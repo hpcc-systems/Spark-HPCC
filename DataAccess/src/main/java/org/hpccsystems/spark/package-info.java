@@ -24,7 +24,7 @@
  * <li>Content is the abstract class defining field content.  There are concrete
  * classes for each of the different content types. </li>
  * <li>FieldType is an enumeration type listing the types of content.</li>
- * <li>FilePart implements the Spark Partition interface.</li>
+ * <li>HpccPart implements the Spark Partition interface.</li>
  * <li>HpccFile is the metadata for a file on an HPCC THOR cluster.</li>
  * <li>HpccFileException is the general exception class.</li>
  * <li>HpccRDD extends RDD<Record> class for Spark.</li>

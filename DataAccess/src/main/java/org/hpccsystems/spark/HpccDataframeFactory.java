@@ -39,7 +39,7 @@ public class HpccDataframeFactory implements Serializable{
   }
   Dataset<Row> getDataframe(HpccFile hpcc) throws HpccFileException {
     RecordDef rd = hpcc.getRecordDefinition();
-    FilePart[] fp = hpcc.getFileParts();
+    HpccPart[] fp = hpcc.getFileParts();
     JavaRDD<Record> jRDD = (new HpccRDD(ss.sparkContext(), fp, rd)).asJavaRDD();
     Function<Record, Row> map_f = new Function<Record, Row>() {
       static private final long serialVersionUID = 1L;

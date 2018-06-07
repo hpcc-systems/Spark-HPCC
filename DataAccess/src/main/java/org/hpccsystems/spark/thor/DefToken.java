@@ -36,7 +36,13 @@ public class DefToken {
   private final String name;
   private final int level;
   private final int position;
-  // public constructor for making a revised copy
+  /**
+   * Make a revised copy, revising parent, level, and position.
+   * @param base the original to be revised
+   * @param newParent the new parent ordinal
+   * @param newLvl the new level ordinal
+   * @param newPos the new position ordinal
+   */
   public DefToken(DefToken base, Integer newParent, int newLvl, int newPos) {
     this.tok = base.tok;
     this.parent = newParent;
@@ -47,6 +53,20 @@ public class DefToken {
     this.whenBoolean = base.whenBoolean;
     this.level = newLvl;
     this.position = newPos;
+  }
+  public DefToken(DefToken base, long newTypeOrLength) {
+    if (base.tok!=JsonToken.VALUE_NUMBER_INT) {
+      throw new IllegalArgumentException("Not an integer token");
+    }
+    this.tok = base.tok;
+    this.parent = base.parent;
+    this.name = base.name;
+    this.whenString = base.whenString;
+    this.whenReal = base.whenReal;
+    this.whenInteger = newTypeOrLength;
+    this.whenBoolean = base.whenBoolean;
+    this.level = base.level;
+    this.position = base.position;
   }
   // private constructors
   private DefToken(JsonToken tok, Integer parent, String name, int lvl, int pos) {
