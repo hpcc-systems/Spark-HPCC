@@ -95,7 +95,9 @@ public class HpccFileTest {
     System.out.println(pc.getIP());
     System.out.println(pc.getFilename());
     //pc.setSimulateFail(true);
+    pc.setForceCursorUse(true);
     boolean wantData = true;
+    int block_limit = 4;
     while (wantData) {
       byte[] block = pc.readBlock();
       StringBuilder sb = new StringBuilder();
@@ -121,7 +123,7 @@ public class HpccFileTest {
         System.out.println("CursorBin transaction is: ");
         System.out.println(pc.getCursorTrans());
       }
-      wantData = block.length > 0;
+      wantData = block.length > 0 && block_limit-- > 0;
     }
     System.out.println("End test");
   }

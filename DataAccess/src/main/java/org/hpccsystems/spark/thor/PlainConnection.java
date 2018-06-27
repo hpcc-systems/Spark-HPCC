@@ -29,6 +29,7 @@ public class PlainConnection {
   private boolean active;
   private boolean closed;
   private boolean simulateFail;
+  private boolean forceCursorUse;
   private byte[] cursorBin;
   private int handle;
   private DataPartition dataPart;
@@ -114,6 +115,16 @@ public class PlainConnection {
     return old;
   }
   /**
+   * Force the use of cursors instead of handles for testing.
+   * @param v the setting
+   * @return the previous setting
+   */
+  public boolean setForceCursorUse(boolean v) {
+    boolean old = this.forceCursorUse;
+    this.forceCursorUse = v;
+    return old;
+  }
+  /**
    * Read a block of the remote file from a THOR node
    * @return the block sent by the node
    * @throws HpccFileException a problem with the read operation
@@ -169,15 +180,17 @@ public class PlainConnection {
       throw new HpccFileException("Error during read block", e);
     }
     if (this.simulateFail) this.handle = -1;
-    String handleTrans = this.getHandleTrans();
+    String readAheadTrans = (this.forceCursorUse)
+                          ? this.getCursorTrans()
+                          : this.getHandleTrans();
     try  {
-      int lenHandleTrans = handleTrans.length();
+      int lenTrans = readAheadTrans.length();
       Charset charset = Charset.forName("ISO-8859-1");
-      this.dos.writeInt(lenHandleTrans);
-      this.dos.write(handleTrans.getBytes(charset),0,lenHandleTrans);
+      this.dos.writeInt(lenTrans);
+      this.dos.write(readAheadTrans.getBytes(charset),0,lenTrans);
       this.dos.flush();
     } catch (IOException e) {
-      throw new HpccFileException("Failure on handle transaction", e);
+      throw new HpccFileException("Failure sending read ahead transaction", e);
     }
     return rslt;
   }
@@ -220,11 +233,25 @@ public class PlainConnection {
    * @return JSON request string
    */
   private String makeInitialRequest() {
+    StringBuilder sb = new StringBuilder(100
+        + this.dataPart.getFilename().length()
+        + this.recDef.getJsonInputDef().length()
+        + this.recDef.getJsonOutputDef().length());
+    sb.append("{ \"format\" : \"binary\", \n");
+    sb.append(makeNodeObject());
+    sb.append("\n}\n");
+    return sb.toString();
+  }
+  /**
+   * Make the node part of the JSON request string
+   * @return Json
+   */
+  private String makeNodeObject() {
     StringBuilder sb = new StringBuilder(50
         + this.dataPart.getFilename().length()
         + this.recDef.getJsonInputDef().length()
         + this.recDef.getJsonOutputDef().length());
-    sb.append("{ \"format\" : \"binary\", \"node\" : ");
+    sb.append(" \"node\" : ");
     sb.append("{\n \"kind\" : \"");
     sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
     sb.append("\",\n \"fileName\" : \"");
@@ -241,7 +268,7 @@ public class PlainConnection {
     sb.append(this.recDef.getJsonInputDef());
     sb.append(", \n \"output\" : ");
     sb.append(this.recDef.getJsonOutputDef());
-    sb.append("\n }  }\n\n");
+    sb.append("\n }");
     return sb.toString();
   }
   /**
@@ -249,41 +276,25 @@ public class PlainConnection {
    * @return the request as a JSON string
    */
   private String makeHandleRequest() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("{\n  \"format\" : \"binary\", \n  \"cursor\" : \"");
+    StringBuilder sb = new StringBuilder(100);
+    sb.append("{ \"format\" : \"binary\",\n");
+    sb.append("  \"handle\" : \"");
     sb.append(Integer.toString(this.handle));
     sb.append("\" \n}");
     return sb.toString();
   }
   private String makeCursorRequest() {
-    StringBuilder sb = new StringBuilder(80
+    StringBuilder sb = new StringBuilder(130
         + this.dataPart.getFilename().length()
         + this.recDef.getJsonInputDef().length()
         + this.recDef.getJsonOutputDef().length()
         + (int)(this.cursorBin.length*1.4));
-    sb.append("{ \"format\" : \"binary\", ");
-    String w = java.util.Base64.getEncoder().encodeToString(this.cursorBin);
-    sb.append("\n   \"cursorBin\" : { \"#valuebin\" : \"");
-    sb.append(w);
-    sb.append("\" }, ");
-    sb.append(" \n \"node\" : ");
-    sb.append("{\n \"kind\" : \"");
-    sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
-    sb.append("\",\n \"fileName\" : \"");
-    sb.append(this.dataPart.getFilename());
-    sb.append("\", \n");
-    if (!this.dataPart.getFilter().isEmpty()) {
-      sb.append(" ");
-      sb.append(this.dataPart.getFilter().toJsonObject());
-      sb.append(",\n");
-    }
-    sb.append(" \"compressed\": \"");
-    sb.append((this.dataPart.isCompressed()) ?"true"  :"false");
-    sb.append("\", \n \"input\" : ");
-    sb.append(this.recDef.getJsonInputDef());
-    sb.append(", \n \"output\" : ");
-    sb.append(this.recDef.getJsonOutputDef());
-    sb.append("\n } }\n\n");
+    sb.append("{ \"format\" : \"binary\",\n");
+    sb.append(makeNodeObject());
+    sb.append(",\n");
+    sb.append("  \"cursorBin\" : { \"#valuebin\" : \"");
+    sb.append(java.util.Base64.getEncoder().encodeToString(this.cursorBin));
+    sb.append("\" }\n}\n ");
     return sb.toString();
   }
   /**
