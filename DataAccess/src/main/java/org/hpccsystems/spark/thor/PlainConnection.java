@@ -292,9 +292,9 @@ public class PlainConnection {
     sb.append("{ \"format\" : \"binary\",\n");
     sb.append(makeNodeObject());
     sb.append(",\n");
-    sb.append("  \"cursorBin\" : { \"#valuebin\" : \"");
+    sb.append("  \"cursorBin\" : \"");
     sb.append(java.util.Base64.getEncoder().encodeToString(this.cursorBin));
-    sb.append("\" }\n}\n ");
+    sb.append("\" \n}\n");
     return sb.toString();
   }
   /**

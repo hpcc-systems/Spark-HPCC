@@ -95,7 +95,7 @@ public class HpccFileTest {
     System.out.println(pc.getIP());
     System.out.println(pc.getFilename());
     //pc.setSimulateFail(true);
-    pc.setForceCursorUse(true);
+    //pc.setForceCursorUse(true);
     boolean wantData = true;
     int block_limit = 4;
     while (wantData) {
