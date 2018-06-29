@@ -66,15 +66,14 @@ public abstract class ClusterRemapper {
    * Factory for making a cluster re-map.
    * @param ri the re-mapping information
    * @param fpiList a list of the file parts
-   * @param parts the number of file parts
    * @return a re-mapping object consistent with the provided information
    * @throws HpccFileException
    */
   public static ClusterRemapper makeMapper(RemapInfo ri,
-      DFUFilePartInfo[] fpiList, int parts) throws HpccFileException {
+      DFUFilePartInfo[] fpiList) throws HpccFileException {
     ClusterRemapper rslt = (ri.isNullMapper()) ? new NullRemapper(ri)
         : (ri.isPortAliasing()) ? new PortRemapper(ri)
-            : new AddrRemapper(ri, fpiList, parts);
+            : new AddrRemapper(ri, fpiList);
     return rslt;
   }
 }

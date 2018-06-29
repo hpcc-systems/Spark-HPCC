@@ -28,28 +28,33 @@ public class DefEntryField extends DefEntry implements Serializable {
   private String fieldName;
   private String typeName;
   private int used;
-  /**
-   * Empty constructor to support serialization.
-   */
-  protected DefEntryField() {
-  }
+  private boolean suppressed;
+  private long typeFlags;
+  private boolean updated;
   /**
    * The DefEntry for objects describing a field.
    * @param toks the tokens
    * @param startPos starting position
    * @param tokCount number of tokens in the sequence
    * @param parent the parent position
+   * @param typeDict the type dictionary to see if the type for this field
+   * has been marked as suppressed.
    */
-  public DefEntryField(DefToken[] toks, int startPos, int tokCount, int parent)
+  public DefEntryField(DefToken[] toks, int startPos, int tokCount, int parent,
+                       HashMap<String,DefEntryType> typeDict)
       throws UnusableDataDefinitionException {
     super(Integer.toString(startPos), startPos, startPos+tokCount-1, parent);
     this.fieldName = "";
     this.typeName = "";
+    this.typeFlags = 0;
+    this.updated = false;
     for (int i=startPos; i<startPos+tokCount; i++) {
       if (DefEntry.NAME.equals(toks[i].getName())) {
         this.fieldName = toks[i].getString();
       } else if (DefEntry.TYPE.equals(toks[i].getName())) {
         this.typeName = toks[i].getString();
+      } else if (DefEntry.FLAGS.equals(toks[i].getName())) {
+        this.typeFlags = toks[i].getInteger();
       }
     }
     if ("".equals(this.fieldName) || "".equals(this.typeName)) {
@@ -61,6 +66,15 @@ public class DefEntryField extends DefEntry implements Serializable {
       sb.append(" tokens");
       throw new UnusableDataDefinitionException(sb.toString());
     }
+    if (!typeDict.containsKey(this.typeName)) {
+      String msg = this.typeName + " not found in type dictionary";
+      throw new UnusableDataDefinitionException(msg);
+    }
+    DefEntryType typ = typeDict.get(this.typeName);
+    this.suppressed = typ.isSuppressed();
+    long checkFlags = TypeDef.reviseFlags(this.typeFlags);
+    this.updated = checkFlags != this.typeFlags;
+    this.typeFlags = checkFlags;
   }
   /**
    * The field name associated with the entry.
@@ -103,13 +117,18 @@ public class DefEntryField extends DefEntry implements Serializable {
    */
   @Override
   public void toTokens(ArrayList<DefToken> toksNew, DefToken[] toksInput) {
-    if (this.used==0) return;
+    if (this.used==0 || this.suppressed) return;
     for (int i=this.getBeginPosition(); i<=this.getEndPosition(); i++) {
-      toksNew.add(toksInput[i]);
+      if (this.updated && DefEntry.FLAGS.equals(toksInput[i].getName())) {
+        toksNew.add(new DefToken(toksInput[i], this.typeFlags));
+      } else {
+        toksNew.add(toksInput[i]);
+      }
     }
   }
   @Override
   public String toString() {
+    if (this.suppressed) return this.fieldName + " suppressed";
     int initialSize = this.fieldName.length()+this.typeName.length()+20;
     StringBuilder sb = new StringBuilder(initialSize);
     sb.append(this.fieldName);
@@ -123,5 +142,13 @@ public class DefEntryField extends DefEntry implements Serializable {
     sb.append(this.typeName);
     sb.append((this.used>0) ? " used" : " unused");
     return sb.toString();
+  }
+  @Override
+  public boolean isSuppressed() {
+    return this.suppressed;
+  }
+  @Override
+  public void suppressEntry() {
+    this.suppressed = true;
   }
 }

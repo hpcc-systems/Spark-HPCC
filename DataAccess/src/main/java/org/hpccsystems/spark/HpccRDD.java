@@ -47,15 +47,15 @@ public class HpccRDD extends RDD<Record> implements Serializable {
   private static Seq<Dependency<RDD<Record>>> empty
           = new ArraySeq<Dependency<RDD<Record>>>(0);
   //
-  private FilePart[] parts;
+  private HpccPart[] parts;
   private RecordDef def;
   /**
    * @param _sc
    * @param
    */
-  public HpccRDD(SparkContext _sc, FilePart[] parts, RecordDef def) {
+  public HpccRDD(SparkContext _sc, HpccPart[] parts, RecordDef def) {
     super(_sc, (Seq)empty, CT_RECORD);
-    this.parts = new FilePart[parts.length];
+    this.parts = new HpccPart[parts.length];
     for (int i=0; i<parts.length; i++) {
       this.parts[i] = parts[i];
     }
@@ -106,7 +106,7 @@ public class HpccRDD extends RDD<Record> implements Serializable {
    */
   @Override
   public InterruptibleIterator<Record> compute(Partition p_arg, TaskContext ctx) {
-    final FilePart this_part = (FilePart) p_arg;
+    final HpccPart this_part = (HpccPart) p_arg;
     final RecordDef rd = this.def;
     Iterator<Record> iter = new Iterator<Record>() {
       private HpccRemoteFileReader rfr = new HpccRemoteFileReader(this_part, rd);
@@ -126,7 +126,7 @@ public class HpccRDD extends RDD<Record> implements Serializable {
    */
   @Override
   public Partition[] getPartitions() {
-    FilePart[] rslt = new FilePart[this.parts.length];
+    HpccPart[] rslt = new HpccPart[this.parts.length];
     for (int i=0; i<this.parts.length; i++) rslt[i] = this.parts[i];
     return rslt;
   }

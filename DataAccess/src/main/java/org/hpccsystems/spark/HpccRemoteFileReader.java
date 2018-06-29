@@ -23,18 +23,18 @@ import org.hpccsystems.spark.thor.BinaryRecordReader;
  */
 public class HpccRemoteFileReader {
   private RecordDef def;
-  private FilePart fp;
+  private HpccPart fp;
   private BinaryRecordReader brr;
   /**
    * A remote file reader that reads the part identified by the
-   * FilePart object using the record definition provided.
+   * HpccPart object using the record definition provided.
    * @param def the definition of the data
    * @param fp the part of the file, name and location
    */
-  public HpccRemoteFileReader(FilePart fp, RecordDef rd) {
+  public HpccRemoteFileReader(HpccPart fp, RecordDef rd) {
     this.def = rd;
     this.fp = fp;
-    this.brr = new BinaryRecordReader(fp, def);
+    this.brr = new BinaryRecordReader(fp.getPartitionInfo(), def);
   }
   /**
    * Is there more data

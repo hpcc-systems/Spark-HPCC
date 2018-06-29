@@ -25,23 +25,17 @@ import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
  */
 public abstract class DefEntry implements Serializable {
   static final long serialVersionUID = 1L;
-  public static final String FIELDS = "fields";
-  public static final String CHILD = "child";
-  public static final String NAME = "name";
-  public static final String TYPE = "type";
+  public static final String FIELDS = "fields";     // root and type objects
+  public static final String CHILD = "child";       // type objects
+  public static final String NAME = "name";         // field entry
+  public static final String TYPE = "type";         // field entry
+  public static final String LENGTH = "length";     // type object
+  public static final String FIELDTYPE = "fieldType";//type object
+  public static final String FLAGS = "flags";       // field entry
   private String name;
   private int beginPosition;
   private int endPosition;
   private int parentPosition;
-  /**
-   * Empty constructor for serialization support.
-   */
-  protected DefEntry() {
-    this.name = "";
-    this.beginPosition = -1;
-    this.endPosition = -1;
-    this.parentPosition = -1;
-  }
   /**
    * Normal constructor.  Positions are provided by setter methods.
    * @param n the name of the object or the empty string if unnamed.
@@ -66,6 +60,17 @@ public abstract class DefEntry implements Serializable {
    * @return the readable information.
    */
   public abstract String toString();
+  /**
+   * Is this entry suppressed?  Some data types found on the HPCCSystems
+   * platform are not supported.  For example, an Alien Datatype is not
+   * supported because the data access definitions are not transportable code.
+   * @return true if this entry is suppressed.
+   */
+  public abstract boolean isSuppressed();
+  /**
+   * Mark the entry as suppressed.
+   */
+  public abstract void suppressEntry();
  /**
    * the object name or the empty string if unnamed
    * @return the name
@@ -101,7 +106,6 @@ public abstract class DefEntry implements Serializable {
    */
   public static DefToken[] pruneDefTokens(DefToken[] toks, TargetColumn tc)
       throws UnusableDataDefinitionException {
-    if (tc.allFields()) return toks;
     DefEntryRoot root = new DefEntryRoot(toks);
     root.countUse(tc);
     ArrayList<DefToken> work_list = new ArrayList<DefToken>();

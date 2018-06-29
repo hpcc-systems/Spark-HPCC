@@ -56,11 +56,6 @@ public class DefEntryRoot extends DefEntry implements Serializable {
   private int first_post_fields; // pos of the first tok after the last fields tok
 
   /**
-   * Empty constructor for serialization support.
-   */
-  protected DefEntryRoot() {
-  }
-  /**
    * @param toks the array of definition tokens
    */
   public DefEntryRoot(DefToken[] toks) throws UnusableDataDefinitionException {
@@ -72,17 +67,20 @@ public class DefEntryRoot extends DefEntry implements Serializable {
     this.last_pre_types = 0; // assumes only the start precedes the types
     int curr_pos = 1;
     int num_tokens = 0;
+    boolean supportedTypes = false;
     // pick up the type definition objects
     while (toks[curr_pos].isObjectStart()) {
       num_tokens = DefEntry.getTokenCount(toks, curr_pos);
-      DefEntryType typ = new DefEntryType(toks, curr_pos, num_tokens, 0);
+      DefEntryType typ = new DefEntryType(toks, curr_pos, num_tokens, 0,
+                                          this.typeDict);
       types.add(typ);
       typeDict.put(typ.getName(), typ);
+      supportedTypes = supportedTypes || ((!typ.isSuppressed()) ? true  : false);
       curr_pos += num_tokens;
     }
-    if (this.types.size()==0) {
+    if (this.types.size()==0 || !supportedTypes) {
       StringBuilder sb = new StringBuilder();
-      sb.append("No types found.  Current token is ");
+      sb.append("No supported types found.  Current token is ");
       sb.append(toks[curr_pos].toString());
       throw new UnusableDataDefinitionException(sb.toString());
     }
@@ -98,11 +96,14 @@ public class DefEntryRoot extends DefEntry implements Serializable {
     this.last_pre_fields = curr_pos;
     // pick up the fields
     curr_pos++;
+    supportedTypes = false;
     while (toks[curr_pos].isObjectStart()) {
       num_tokens = DefEntry.getTokenCount(toks, curr_pos);
-      DefEntryField fld = new DefEntryField(toks, curr_pos, num_tokens, 0);
+      DefEntryField fld = new DefEntryField(toks, curr_pos, num_tokens,
+                                            0, typeDict);
       this.fields.add(fld);
       this.fieldDict.put(fld.getFieldName(), fld);
+      supportedTypes = supportedTypes || ((fld.isSuppressed())  ? false  : true);
       curr_pos += num_tokens;
     }
     if (!toks[curr_pos].isArrayEnd()) {
@@ -112,9 +113,9 @@ public class DefEntryRoot extends DefEntry implements Serializable {
       throw new UnusableDataDefinitionException(sb.toString());
     }
     this.first_post_fields = curr_pos;
-    if (this.fields.size()==0) {
+    if (this.fields.size()==0 || !supportedTypes) {
       StringBuilder sb = new StringBuilder();
-      sb.append("No fields found.");
+      sb.append("No fields found with supported types.");
       throw new UnusableDataDefinitionException(sb.toString());
     }
   }
@@ -176,6 +177,7 @@ public class DefEntryRoot extends DefEntry implements Serializable {
     Iterator<DefEntryType> types_iter = this.types.iterator();
     while (types_iter.hasNext()) {
       DefEntryType typ = types_iter.next();
+      if (typ.isSuppressed()) continue;
       sb.append("   ");
       sb.append(typ.toString());
       sb.append("\n");
@@ -184,10 +186,19 @@ public class DefEntryRoot extends DefEntry implements Serializable {
     Iterator<DefEntryField> flds_iter = this.fields.iterator();
     while (flds_iter.hasNext()) {
       DefEntryField fld = flds_iter.next();
+      if (fld.isSuppressed()) continue;
       sb.append("   ");
       sb.append(fld.toString());
       sb.append("\n");
     }
     return sb.toString();
+  }
+  @Override
+  public boolean isSuppressed() {
+    return false;
+  }
+  @Override
+  public void suppressEntry() {
+    throw new UnsupportedOperationException("Cannot suppress the root");
   }
 }

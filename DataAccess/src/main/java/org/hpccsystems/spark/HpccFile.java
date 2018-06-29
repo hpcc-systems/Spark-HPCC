@@ -22,6 +22,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.hpccsystems.spark.thor.ClusterRemapper;
+import org.hpccsystems.spark.thor.FileFilter;
 import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 import org.hpccsystems.ws.client.HPCCWsDFUClient;
@@ -38,8 +39,50 @@ import org.hpccsystems.ws.client.utils.Connection;
 public class HpccFile implements Serializable {
   static private final long serialVersionUID = 1L;
 
-  private FilePart[] parts;
+  private HpccPart[] parts;
   private RecordDef recordDefinition;
+  private boolean isIndex;
+  /**
+   * Constructor for the HpccFile.  Captures the information
+   * from the DALI Server for the
+   * clusters behind the ESP named by the IP address.
+   * @param fileName The HPCC file name
+   * @param protocol usually http or https
+   * @param host the ESP address
+   * @param port the ESP port
+   * @param user a valid account that has access to the file
+   * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of column names with dotted
+   * names
+   * @throws HpccFileException
+   */
+  public HpccFile(String fileName, String protocol, String host, String port,
+      String user, String pword, String targetColumnList)
+          throws HpccFileException{
+    this(fileName, protocol, host, port, user, pword, targetColumnList,
+        FileFilter.nullFilter(), new RemapInfo(), 0);
+  }
+ /**
+   * Constructor for the HpccFile.  Captures the information
+   * from the DALI Server for the
+   * clusters behind the ESP named by the IP address.
+   * @param fileName The HPCC file name
+   * @param protocol usually http or https
+   * @param host the ESP address
+   * @param port the ESP port
+   * @param user a valid account that has access to the file
+   * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of column names with dotted
+   * names
+   * @param maxParts the maximum number of partitions to use or zero if no max
+   * @throws HpccFileException
+   */
+  public HpccFile(String fileName, String protocol, String host, String port,
+          String user, String pword, String targetColumnList, int maxParts)
+          throws HpccFileException{
+    this(fileName, protocol, host, port, user, pword, targetColumnList,
+        FileFilter.nullFilter(), new RemapInfo(), maxParts);
+  }
   /**
    * Constructor for the HpccFile.  Captures the information
    * from the DALI Server for the
@@ -51,12 +94,76 @@ public class HpccFile implements Serializable {
    * @param user a valid account that has access to the file
    * @param pword a valid pass word for the account
    * @param targetColumnList a comma separated list of colomn names with dotted names
+   * @param filter a file filter to select a subset of records
    * @throws HpccFileException
    */
   public HpccFile(String fileName, String protocol, String host,
-          String port, String user, String pword, String targetColumnList)
-          throws HpccFileException{
-    this(fileName, protocol, host, port, user, pword, targetColumnList, new RemapInfo(0));
+      String port, String user, String pword, String targetColumnList,
+      FileFilter filter) throws HpccFileException {
+    this(fileName, protocol, host, port, user, pword, targetColumnList,
+         filter, new RemapInfo(), 0);
+  }
+  /**
+   * Constructor for the HpccFile.  Captures the information
+   * from the DALI Server for the
+   * clusters behind the ESP named by the IP address.
+   * @param fileName The HPCC file name
+   * @param protocol usually http or https
+   * @param host the ESP address
+   * @param port the ESP port
+   * @param user a valid account that has access to the file
+   * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of colomn names with dotted names
+   * @param filter a file filter to select a subset of records
+   * @param maxParts the maximum number of partitions or zero for no max
+   * @throws HpccFileException
+   */
+  public HpccFile(String fileName, String protocol, String host,
+      String port, String user, String pword, String targetColumnList,
+      FileFilter filter, int maxParts) throws HpccFileException {
+    this(fileName, protocol, host, port, user, pword, targetColumnList,
+         filter, new RemapInfo(), maxParts);
+  }
+  /**
+   * Constructor for the HpccFile.  Captures the information
+   * from the DALI Server for the
+   * clusters behind the ESP named by the IP address.
+   * @param fileName The HPCC file name
+   * @param protocol usually http or https
+   * @param host the ESP address
+   * @param port the ESP port
+   * @param user a valid account that has access to the file
+   * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of colomn names with dotted names
+   * @param remap_info address and port re-mapping info for THOR cluster
+   * @throws HpccFileException
+   */
+  public HpccFile(String fileName, String protocol, String host,
+      String port, String user, String pword, String targetColumnList,
+      RemapInfo remap_info) throws HpccFileException {
+    this(fileName, protocol, host, port, user, pword, targetColumnList,
+         FileFilter.nullFilter(), remap_info, 0);
+  }
+  /**
+   * Constructor for the HpccFile.  Captures the information
+   * from the DALI Server for the
+   * clusters behind the ESP named by the IP address.
+   * @param fileName The HPCC file name
+   * @param protocol usually http or https
+   * @param host the ESP address
+   * @param port the ESP port
+   * @param user a valid account that has access to the file
+   * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of colomn names with dotted names
+   * @param remap_info address and port re-mapping info for THOR cluster
+   * @param maxParts the maximum number of partitions or zero for no max
+   * @throws HpccFileException
+   */
+  public HpccFile(String fileName, String protocol, String host,
+      String port, String user, String pword, String targetColumnList,
+      RemapInfo remap_info, int maxParts) throws HpccFileException {
+    this(fileName, protocol, host, port, user, pword, targetColumnList,
+         FileFilter.nullFilter(), remap_info, maxParts);
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -72,32 +179,32 @@ public class HpccFile implements Serializable {
    * @param pword a valid pass word for the account
    * @param targetColumnList a comma separated list of column names in dotted
    * notation for columns within compound columns.
+   * @param filter a file filter to select records of interest
    * @param remap_info address and port re-mapping info for THOR cluster
+   * @param maxParts the maximum number of partitions or zero for no max
    * @throws HpccFileException
    */
-  public HpccFile(String fileName, String protocol, String host,
-      String port, String user, String pword, String targetColumnList,
-      RemapInfo remap_info) throws HpccFileException {
+  public HpccFile(String fileName, String protocol, String host, String port,
+      String user, String pword, String targetColumnList, FileFilter filter,
+      RemapInfo remap_info, int maxParts) throws HpccFileException {
     this.recordDefinition = new RecordDef();  // missing, the default
     ColumnPruner cp = new ColumnPruner(targetColumnList);
     Connection conn = new Connection(protocol, host, port);
     conn.setUserName(user);
     conn.setPassword(pword);
     HPCCWsDFUClient hpcc = HPCCWsDFUClient.get(conn);
+    String record_def_json = "";
     try {
       DFUFileDetailInfo fd = hpcc.getFileDetails(fileName, "", true, false);
-      DFUFilePartsOnClusterInfo[] fp = fd.getDFUFilePartsOnClusters();
-      DFUFilePartInfo[] dfu_parts = fp[0].getDFUFileParts();
-      ClusterRemapper cr = ClusterRemapper.makeMapper(remap_info, dfu_parts,
-          fd.getNumParts());
-      this.parts = FilePart.makeFileParts(fd.getNumParts(), fd.getDir(),
-          fd.getFilename(), fd.getPathMask(), dfu_parts, cr, fd.getIsCompressed());
-      String record_def_json = fd.getJsonInfo();
+      this.isIndex = fd.isIndex();
+      this.parts = HpccPart.makeFileParts(fd, remap_info, maxParts, filter);
+      record_def_json = fd.getJsonInfo();
       if (record_def_json==null) {
         throw new UnusableDataDefinitionException("Definiiton returned was null");
       }
       this.recordDefinition = RecordDef.fromJsonDef(record_def_json, cp);
     } catch (UnusableDataDefinitionException e) {
+      System.err.println(record_def_json);
       throw new HpccFileException("Bad definition", e);
     } catch (Exception e) {
       StringBuilder sb = new StringBuilder();
@@ -111,8 +218,8 @@ public class HpccFile implements Serializable {
    * @return
    * @throws HpccFileException
    */
-  public FilePart[] getFileParts() throws HpccFileException {
-    FilePart[] rslt = new FilePart[parts.length];
+  public HpccPart[] getFileParts() throws HpccFileException {
+    HpccPart[] rslt = new HpccPart[parts.length];
     for (int i=0; i<parts.length; i++) rslt[i]=parts[i];
     return rslt;
   }
@@ -144,4 +251,9 @@ public class HpccFile implements Serializable {
     HpccDataframeFactory factory = new HpccDataframeFactory(session);
     return factory.getDataframe(this);
   }
+  /**
+   * Is this an index?
+   * @return true if yes
+   */
+  public boolean isIndex() { return this.isIndex; }
 }

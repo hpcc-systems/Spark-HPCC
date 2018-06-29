@@ -31,10 +31,9 @@ public class RemapInfo implements Serializable {
   private final int base_portSsl;
   /**
    * Info to create a null re-map.
-   * @param thorNodes number of THOR nodes in this cluster
    */
-  public RemapInfo(int thorNodes) {
-    this.nodes = thorNodes;
+  public RemapInfo() {
+    this.nodes = 0;
     this.base_portClear = 0;
     this.base_portSsl = 0;
     this.base_ip = "";
