@@ -38,9 +38,9 @@ public class PlainConnection {
   private java.io.DataOutputStream dos;
   private java.net.Socket sock;
   //
-  private static final Charset hpccSet = Charset.forName("ISO-8859-1");
-  private static final byte[] hyphen = "-".getBytes(hpccSet);
-  private static final byte[] uc_J = "J".getBytes(hpccSet);
+  public static final Charset HPCCCharSet = Charset.forName("ISO-8859-1");
+  public static final char RFCStreamReadCmd = '\u002B'; //43 in decimal, value associated w/ stream read in dafilesrv
+  public static final int RFCStreamNoError = '\u0000';
   /**
    * A plain socket connect to a THOR node for remote read
    * @param hpccPart the remote file name and IP
@@ -167,6 +167,7 @@ public class PlainConnection {
         closeConnection();
         return rslt;
       }
+
       rslt = new byte[dataLen];
       for (int i=0; i<dataLen; i++) rslt[i] = dis.readByte();
       int cursorLen = dis.readInt();
@@ -185,9 +186,8 @@ public class PlainConnection {
                           : this.getHandleTrans();
     try  {
       int lenTrans = readAheadTrans.length();
-      Charset charset = Charset.forName("ISO-8859-1");
       this.dos.writeInt(lenTrans);
-      this.dos.write(readAheadTrans.getBytes(charset),0,lenTrans);
+      this.dos.write(readAheadTrans.getBytes(HPCCCharSet),0,lenTrans);
       this.dos.flush();
     } catch (IOException e) {
       throw new HpccFileException("Failure sending read ahead transaction", e);
@@ -217,11 +217,10 @@ public class PlainConnection {
     }
     this.active = true;
     try {
-      Charset charset = Charset.forName("ISO-8859-1");
       String readTrans = makeInitialRequest();
       int transLen = readTrans.length();
       this.dos.writeInt(transLen);
-      this.dos.write(readTrans.getBytes(charset),0,transLen);
+      this.dos.write(readTrans.getBytes(HPCCCharSet),0,transLen);
       this.dos.flush();
     } catch (IOException e) {
       throw new HpccFileException("Failed on initial remote read read trans", e);
@@ -237,6 +236,7 @@ public class PlainConnection {
         + this.dataPart.getFilename().length()
         + this.recDef.getJsonInputDef().length()
         + this.recDef.getJsonOutputDef().length());
+    sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\", \n");
     sb.append(makeNodeObject());
     sb.append("\n}\n");
@@ -277,10 +277,12 @@ public class PlainConnection {
    */
   private String makeHandleRequest() {
     StringBuilder sb = new StringBuilder(100);
+    sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\",\n");
     sb.append("  \"handle\" : \"");
     sb.append(Integer.toString(this.handle));
     sb.append("\" \n}");
+
     return sb.toString();
   }
   private String makeCursorRequest() {
@@ -289,6 +291,7 @@ public class PlainConnection {
         + this.recDef.getJsonInputDef().length()
         + this.recDef.getJsonOutputDef().length()
         + (int)(this.cursorBin.length*1.4));
+    sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\",\n");
     sb.append(makeNodeObject());
     sb.append(",\n");
@@ -327,26 +330,20 @@ public class PlainConnection {
         len &= 0x7FFFFFFF;
       }
       if (len == 0) return 0;
-      byte flag = dis.readByte();
-      if (flag==hyphen[0]) {
-        if (len<2) throw new HpccFileException("Failed with no message sent");
-        int msgLen = len-1;
-        byte[] msg = new byte[msgLen];
-        this.dis.read(msg);
-        String message = new String(msg, hpccSet);
-        throw new HpccFileException("Failed with " + message);
+
+      int status = dis.readInt();
+      if (status != RFCStreamNoError)
+      {
+            StringBuilder sb = new StringBuilder();
+            sb.append("Invalid response of: (");
+            sb.append(String.format("0x%08X", status));
+            sb.append(") received from THOR node ");
+            sb.append(this.getIP());
+            sb.append(" and return length hi-bit was ");
+            sb.append(hi_flag);
+            throw new HpccFileException(sb.toString());
       }
-      if (flag != uc_J[0]) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Invalid response of ");
-        sb.append(String.format("%02X ", flag));
-        sb.append("received from THOR node ");
-        sb.append(this.getIP());
-        sb.append(" and return length hi-bit was ");
-        sb.append(hi_flag);
-        throw new HpccFileException(sb.toString());
-      }
-      len--;  // account for flag byte read
+      len -=4; // account for the status int 4-byte
     } catch (IOException e) {
       throw new HpccFileException("Error during read block", e);
     }
@@ -361,9 +358,8 @@ public class PlainConnection {
     String retryTrans = this.makeCursorRequest();
     int len = retryTrans.length();
     try {
-      Charset charset = Charset.forName("ISO-8859-1");
       this.dos.writeInt(len);
-      this.dos.write(retryTrans.getBytes(charset),0,len);
+      this.dos.write(retryTrans.getBytes(HPCCCharSet),0,len);
       this.dos.flush();
     } catch (IOException e) {
       throw new HpccFileException("Failed on remote read read retry", e);
