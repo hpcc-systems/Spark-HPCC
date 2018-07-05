@@ -19,17 +19,12 @@
 package org.hpccsystems.spark;
 
 import java.io.Serializable;
-import java.text.NumberFormat;
-import java.text.ParseException;
-import java.util.Arrays;
-import java.util.Comparator;
 
 import org.apache.spark.Partition;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FileFilter;
 import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
-import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
 
 /**
  * A file part of an HPCC file.  This is the Spark partition for the RDD.
@@ -37,7 +32,7 @@ import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
  */
 public class HpccPart implements Partition, Serializable {
   static private final long serialVersionUID = 1L;
-  private DataPartition dataPart;
+  private DataPartition[] dataParts;
   private int this_part;
   private int num_parts;
 
@@ -47,17 +42,33 @@ public class HpccPart implements Partition, Serializable {
    * @param part_ordinal the ordinal position of this part
    * @param part the data partition
    */
-  private HpccPart(int parts, int part_ordinal, DataPartition part) {
-    this.dataPart = part;
+  private HpccPart(int parts, int part_ordinal, DataPartition[] dataPartsIn) {
+    this.dataParts = new DataPartition[dataPartsIn.length];
+    for (int i=0; i<dataPartsIn.length; i++) this.dataParts[i] = dataPartsIn[i];
     this.this_part = part_ordinal;
     this.num_parts = parts;
   }
 
   /**
-   * Partition information
-   * @return information
+   * Partition information list.  A copy of the array.
+   * @return information list
    */
-  public DataPartition getPartitionInfo() { return this.dataPart; }
+  public DataPartition[] getPartitionInfoList() {
+    DataPartition[] rslt = new DataPartition[this.dataParts.length];
+    for (int i=0; i<this.dataParts.length; i++) rslt[i] = this.dataParts[i];
+    return rslt;
+  }
+  /**
+   * The number of data partition objects for this partition
+   * @return the count
+   */
+  public int numDataPartitions() { return this.dataParts.length; }
+  /**
+   * The data partition object in specified position
+   * @param ndx te position
+   * @return the partition object
+   */
+  public DataPartition getDataPartitionAt(int ndx) { return this.dataParts[ndx]; }
   /* (non-Javadoc)
    * @see org.apache.spark.Partition#index()
    */
@@ -69,10 +80,14 @@ public class HpccPart implements Partition, Serializable {
    * @see java.lang.Object
    */
   public String toString() {
-    StringBuilder sb = new StringBuilder();
+    StringBuilder sb = new StringBuilder(50*this.dataParts.length);
     sb.append(this.this_part);
     sb.append(" ");
-    sb.append(this.dataPart.toString());
+    if (this.dataParts.length>0) sb.append(this.dataParts[0].toString());
+    for (int i=1; i<this.dataParts.length; i++) {
+      sb.append(";");
+      sb.append(this.dataParts[i].toString());
+    }
     return sb.toString();
   }
   /* (non-Javadoc)
@@ -81,10 +96,13 @@ public class HpccPart implements Partition, Serializable {
   public boolean org$apache$spark$Partition$$super$equals(Object arg0) {
     if (!(arg0 instanceof HpccPart)) return false;
     HpccPart fp0 = (HpccPart) arg0;
-    DataPartition dp0 = fp0.getPartitionInfo();
-    if (!this.dataPart.equals(dp0)) return false;
     if (this.this_part != fp0.this_part) return false;
     if (this.num_parts != fp0.num_parts) return false;
+    DataPartition[] dp0 = fp0.getPartitionInfoList();
+    if (this.dataParts.length != dp0.length) return false;
+    for (int i=0; i<this.dataParts.length; i++) {
+      if (!this.dataParts[i].equals(dp0[i])) return false;
+    }
     return true;
   }
   /**
@@ -95,11 +113,11 @@ public class HpccPart implements Partition, Serializable {
    * set to FileFilter.nullFilter() for all records.
    * @return an array of partitions for Spark
    */
-  public static HpccPart[] makeFileParts(DFUFileDetailInfo fdi,
+  public static HpccPart[] makeFileParts(DFUFileDetailInfo[] fdis,
       RemapInfo remap_info, int max_parts, FileFilter filter)
           throws HpccFileException {
-    DataPartition[] dataParts
-              = DataPartition.createPartitions(fdi, remap_info, max_parts, filter);
+    DataPartition[][] dataParts
+              = DataPartition.createPartitions(fdis, remap_info, max_parts, filter);
     HpccPart[] rslt = new HpccPart[dataParts.length];
     for (int i=0; i<rslt.length; i++ ) {
       rslt[i] = new HpccPart(dataParts.length, i+1, dataParts[i]);

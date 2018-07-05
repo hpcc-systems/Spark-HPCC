@@ -16,6 +16,7 @@
 package org.hpccsystems.spark.thor;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import org.hpccsystems.spark.HpccFileException;
@@ -142,7 +143,7 @@ public class DataPartition implements Serializable {
   }
   /**
    * Make an array of data partitions for the supplied HPCC File
-   * @param fdi the file detail information
+   * @param fdis the file detail information, multiple if multiple sub-files
    * @param remap_info used to remap the IP addresses or ports when the
    * THOR nodes are in a virtual cluster
    * @param max_parts the maximum number of parts or zero for no maximum
@@ -151,54 +152,85 @@ public class DataPartition implements Serializable {
    * @return and array of partitions.
    * @throws HpccFileException
    */
-  public static DataPartition[] createPartitions(DFUFileDetailInfo fdi,
+  public static DataPartition[][] createPartitions(DFUFileDetailInfo[] fdis,
       RemapInfo remap_info, int max_parts, FileFilter filter)
   throws HpccFileException {
-    DFUFilePartsOnClusterInfo[] fp = fdi.getDFUFilePartsOnClusters();
-    DFUFilePartInfo[] dfu_parts = fp[0].getDFUFileParts();  // always use first
-    int num_content_parts = fdi.getNumParts() - ((fdi.isIndex()) ? 1  : 0);
-    ClusterRemapper cr = ClusterRemapper.makeMapper(remap_info, dfu_parts);
-    Arrays.sort(dfu_parts, FilePartInfoComparator);
-    int copies = dfu_parts.length / fdi.getNumParts();
-    int posSecondary = (copies==1) ? 0 : 1;
-    DataPartition[] rslt = new DataPartition[num_content_parts];
-    for (int i=0; i<num_content_parts; i++) {
-      DFUFilePartInfo primary = dfu_parts[i * copies];
-      DFUFilePartInfo secondary = dfu_parts[(i * copies) + posSecondary];
-      rslt[i] = new DataPartition(cr.revisePrimaryIP(primary),
-                          cr.reviseSecondaryIP(secondary),
-                          fdi.getDir(), i+1, fdi.getNumParts(),
-                          dfu_parts[i].getPartSizeInt64(),
-                          fdi.getPathMask(), cr.reviseClearPort(primary),
-                          cr.reviseSslPort(secondary), fdi.getIsCompressed(),
-                          fdi.isIndex(), filter);
+    DFUFilePartsOnClusterInfo[] fps = new DFUFilePartsOnClusterInfo[fdis.length];
+    int num_content_parts = 0;
+    int max_sub = 0;
+    for (int subFile=0; subFile<fps.length; subFile++) {
+      fps[subFile] = fdis[subFile].getDFUFilePartsOnClusters()[0];
+      int work_parts = fdis[subFile].getNumParts()
+                     - ((fdis[subFile].isIndex()) ? 1  : 0);
+      num_content_parts += work_parts;
+      max_sub = (max_sub<work_parts)  ? work_parts  : max_sub;
+    }
+    int level0 = (max_parts>0 && max_parts<max_sub)  ? max_parts  : max_sub;
+    if (max_parts>=num_content_parts) level0 = num_content_parts;
+    DataPartition[][] rslt = new DataPartition[level0][];
+    int level1_base = num_content_parts/level0;
+    int level1_plus = num_content_parts - (level0*level1_base);
+    for (int i=0; i<rslt.length; i++) {
+      rslt[i] = new DataPartition[(i<level1_plus)  ? level1_base+1  : level1_base];
+    }
+    int level0_pos = 0;
+    int level1_pos = 0;
+    for (int subFile=0; subFile<fdis.length; subFile++) {
+      //fps and fdis parallel arrays
+      if (level0_pos >= level0) {
+        level1_pos++;
+        level0_pos = 0;
+      }
+      DFUFilePartInfo[] dfu_parts = fps[subFile].getDFUFileParts();
+      ClusterRemapper cr = ClusterRemapper.makeMapper(remap_info, dfu_parts);
+      Arrays.sort(dfu_parts, FilePartInfoComparator);
+      int copies = dfu_parts.length / fdis[subFile].getNumParts();
+      int posSecondary = (copies==1) ? 0 : 1;
+      int these_content_parts = fdis[subFile].getNumParts()
+                              - ((fdis[subFile].isIndex()) ? 1  : 0);
+      for (int i=0; i<these_content_parts; i++) {
+        DFUFilePartInfo primary = dfu_parts[i * copies];
+        DFUFilePartInfo secondary = dfu_parts[(i * copies) + posSecondary];
+        DataPartition new_dp = new DataPartition(cr.revisePrimaryIP(primary),
+                                          cr.reviseSecondaryIP(secondary),
+                                          fdis[subFile].getDir(), i+1,
+                                          fdis[subFile].getNumParts(),
+                                          dfu_parts[i].getPartSizeInt64(),
+                                          fdis[subFile].getPathMask(),
+                                          cr.reviseClearPort(primary),
+                                          cr.reviseSslPort(secondary),
+                                          fdis[subFile].getIsCompressed(),
+                                          fdis[subFile].isIndex(), filter);
+        rslt[level0_pos][level1_pos] = new_dp;
+        level0_pos++;
+      }
     }
     return rslt;
   }
   /**
    * Make an array of data partitions for the supplied HPCC File.
-   * @param fdi the file detail information
+   * @param fdis the file detail information, multiple if multiple sub-files
    * @param max_parts the maximum number of partitions or zero for no limit
    * @param filter A filter using a list of fields each with one or more
    * value ranges
    * @return an array of partitions
    * @throws HpccFileException
    */
-  public static DataPartition[] createPartitions(DFUFileDetailInfo fdi,
+  public static DataPartition[][] createPartitions(DFUFileDetailInfo[] fdis,
       int max_parts, FileFilter filter) throws HpccFileException {
-    return createPartitions(fdi, new RemapInfo(), max_parts, filter);
+    return createPartitions(fdis, new RemapInfo(), max_parts, filter);
   }
   /**
    * Make an array of data partitions for the supplied HPCC File.
-   * @param fdi the file detail information
+   * @param fdis the file detail information, multiple if multiple sub-files
    * @param remap_info remap the IP or ports
    * @param max_parts the maximum number of partitions or zero for no limit
    * @return an array of partitions
    * @throws HpccFileException
    */
-  public static DataPartition[] createPartitions(DFUFileDetailInfo fdi,
+  public static DataPartition[][] createPartitions(DFUFileDetailInfo[] fdis,
       RemapInfo remap_info, int max_parts) throws HpccFileException {
-    return createPartitions(fdi, remap_info, max_parts, FileFilter.nullFilter());
+    return createPartitions(fdis, remap_info, max_parts, FileFilter.nullFilter());
   }
   /**
    * Comparator function to order file part information.
