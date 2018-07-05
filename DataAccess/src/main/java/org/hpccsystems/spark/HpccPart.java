@@ -19,6 +19,7 @@
 package org.hpccsystems.spark;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 import org.apache.spark.Partition;
 import org.hpccsystems.spark.thor.DataPartition;
@@ -43,8 +44,7 @@ public class HpccPart implements Partition, Serializable {
    * @param part the data partition
    */
   private HpccPart(int parts, int part_ordinal, DataPartition[] dataPartsIn) {
-    this.dataParts = new DataPartition[dataPartsIn.length];
-    for (int i=0; i<dataPartsIn.length; i++) this.dataParts[i] = dataPartsIn[i];
+    this.dataParts = Arrays.copyOf(dataPartsIn, dataPartsIn.length);
     this.this_part = part_ordinal;
     this.num_parts = parts;
   }
@@ -54,8 +54,7 @@ public class HpccPart implements Partition, Serializable {
    * @return information list
    */
   public DataPartition[] getPartitionInfoList() {
-    DataPartition[] rslt = new DataPartition[this.dataParts.length];
-    for (int i=0; i<this.dataParts.length; i++) rslt[i] = this.dataParts[i];
+    DataPartition[] rslt = Arrays.copyOf(this.dataParts, this.dataParts.length);
     return rslt;
   }
   /**

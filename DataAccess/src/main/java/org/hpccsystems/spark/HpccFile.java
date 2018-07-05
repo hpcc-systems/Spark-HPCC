@@ -256,6 +256,15 @@ public class HpccFile implements Serializable {
    * @return true if yes
    */
   public boolean isIndex() { return this.isIndex; }
+  /**
+   * Recurse through the FileDetailInfo structure to get the list of actual files.
+   * @param fd_list an ArrayList object to build up the list of real file
+   * names
+   * @param fileName the file name of interest, it may be a super file and if
+   * so, we recursively call to resolve to a list of actual files
+   * @param hpcc our connection to the wsclient services
+   * @throws Exception thrown by wsclient services when something goes wrong
+   */
   private static void recurseFDI(ArrayList<DFUFileDetailInfo> fd_list,
                                  String fileName,
                                  HPCCWsDFUClient hpcc) throws Exception {
