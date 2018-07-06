@@ -64,10 +64,13 @@ public class HpccFileTest {
     System.out.println("Getting file parts");
     HpccPart[] parts = hpcc.getFileParts();
     for (int i=0; i<parts.length; i++) {
-      System.out.println(parts[i].getPartitionInfo().getFilename() + ":"
-              + parts[i].getPartitionInfo().getPrimaryIP()+ ":"
-              + parts[i].getPartitionInfo().getSecondaryIP() + ": "
-              + parts[i].getPartitionInfo().getThisPart());
+      DataPartition[] dataParts = parts[i].getPartitionInfoList();
+      for (DataPartition dp: dataParts) {
+        System.out.println(dp.getFilename() + ":"
+                + dp.getPrimaryIP()+ ":"
+                + dp.getSecondaryIP() + ": "
+                + dp.getThisPart());
+      }
     }
     System.out.println("Getting JSON definition");
     System.out.println(hpcc.getRecordDefinition().getJsonInputDef());
@@ -88,42 +91,45 @@ public class HpccFileTest {
     } catch(Exception e) {
       System.out.println("Bad input, reading block from part 1");
     }
-    DataPartition dp = parts[partIndex].getPartitionInfo();
-    PlainConnection pc = new PlainConnection(dp, rd);
-    System.out.print("Transaction : ");
-    System.out.println(pc.getTrans());
-    System.out.println(pc.getIP());
-    System.out.println(pc.getFilename());
-    //pc.setSimulateFail(true);
-    //pc.setForceCursorUse(true);
-    boolean wantData = true;
-    int block_limit = 4;
-    while (wantData) {
-      byte[] block = pc.readBlock();
-      StringBuilder sb = new StringBuilder();
-      sb.append("Handle ");
-      sb.append(pc.getHandle());
-      sb.append(", data length=");
-      sb.append(block.length);
-      System.out.println(sb.toString());
-      for (int i=0; i<block.length; i+=16) {
-        sb.delete(0, sb.length());
-        sb.append(String.format("%06d %04X", i, i));
-        sb.append("  ");
-        for (int j=0; j<16 && i+j<block.length; j++) {
-          sb.append(String.format("%02X ", block[i+j]));
-          sb.append(" ");
-        }
+    for (DataPartition dp: parts[partIndex].getPartitionInfoList()) {
+      System.out.println("data partiton " + dp.toString());
+      PlainConnection pc = new PlainConnection(dp, rd);
+      System.out.print("Transaction : ");
+      System.out.println(pc.getTrans());
+      System.out.println(pc.getIP());
+      System.out.println(pc.getFilename());
+      //pc.setSimulateFail(true);
+      //pc.setForceCursorUse(true);
+      boolean wantData = true;
+      int block_limit = 4;
+      while (wantData) {
+        byte[] block = pc.readBlock();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Handle ");
+        sb.append(pc.getHandle());
+        sb.append(", data length=");
+        sb.append(block.length);
         System.out.println(sb.toString());
+        for (int i=0; i<block.length; i+=16) {
+          sb.delete(0, sb.length());
+          sb.append(String.format("%06d %04X", i, i));
+          sb.append("  ");
+          for (int j=0; j<16 && i+j<block.length; j++) {
+            sb.append(String.format("%02X ", block[i+j]));
+            sb.append(" ");
+          }
+          System.out.println(sb.toString());
+        }
+        if (pc.isClosed()) System.out.println("Closed connection");
+        else {
+          System.out.print("Handle trans is ");
+          System.out.println(pc.getHandleTrans());
+          System.out.println("CursorBin transaction is: ");
+          System.out.println(pc.getCursorTrans());
+        }
+        wantData = block.length > 0 && block_limit-- > 0;
       }
-      if (pc.isClosed()) System.out.println("Closed connection");
-      else {
-        System.out.print("Handle trans is ");
-        System.out.println(pc.getHandleTrans());
-        System.out.println("CursorBin transaction is: ");
-        System.out.println(pc.getCursorTrans());
-      }
-      wantData = block.length > 0 && block_limit-- > 0;
+      System.out.println("End data parttion");
     }
     System.out.println("End test");
   }

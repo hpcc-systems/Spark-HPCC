@@ -16,19 +16,17 @@
 package org.hpccsystems.spark;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.hpccsystems.spark.thor.ClusterRemapper;
 import org.hpccsystems.spark.thor.FileFilter;
 import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 import org.hpccsystems.ws.client.HPCCWsDFUClient;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
-import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
-import org.hpccsystems.ws.client.platform.DFUFilePartsOnClusterInfo;
 import org.hpccsystems.ws.client.utils.Connection;
 
 /**
@@ -195,10 +193,12 @@ public class HpccFile implements Serializable {
     HPCCWsDFUClient hpcc = HPCCWsDFUClient.get(conn);
     String record_def_json = "";
     try {
-      DFUFileDetailInfo fd = hpcc.getFileDetails(fileName, "", true, false);
-      this.isIndex = fd.isIndex();
-      this.parts = HpccPart.makeFileParts(fd, remap_info, maxParts, filter);
-      record_def_json = fd.getJsonInfo();
+      ArrayList<DFUFileDetailInfo> fd_list = new ArrayList<DFUFileDetailInfo>();
+      HpccFile.recurseFDI(fd_list, fileName, hpcc);
+      DFUFileDetailInfo[] fd_array = fd_list.toArray(new DFUFileDetailInfo[0]);
+      this.isIndex = fd_array[0].isIndex();
+      this.parts = HpccPart.makeFileParts(fd_array, remap_info, maxParts, filter);
+      record_def_json = fd_array[0].getJsonInfo();
       if (record_def_json==null) {
         throw new UnusableDataDefinitionException("Definiiton returned was null");
       }
@@ -256,4 +256,28 @@ public class HpccFile implements Serializable {
    * @return true if yes
    */
   public boolean isIndex() { return this.isIndex; }
+  /**
+   * Recurse through the FileDetailInfo structure to get the list of actual files.
+   * @param fd_list an ArrayList object to build up the list of real file
+   * names
+   * @param fileName the file name of interest, it may be a super file and if
+   * so, we recursively call to resolve to a list of actual files
+   * @param hpcc our connection to the wsclient services
+   * @throws Exception thrown by wsclient services when something goes wrong
+   */
+  private static void recurseFDI(ArrayList<DFUFileDetailInfo> fd_list,
+                                 String fileName,
+                                 HPCCWsDFUClient hpcc) throws Exception {
+    DFUFileDetailInfo fd = hpcc.getFileDetails(fileName, "", true, false);
+    if (fd.getIsSuperfile()) {
+      String[] subFileNames = fd.getSubfiles();
+      if (subFileNames.length > 1) {
+        // need HPCC-20039
+        throw new Exception("Multiple sub-files not supported.");
+      }
+      for (int i=0; i<subFileNames.length; i++) {
+        recurseFDI(fd_list, subFileNames[i], hpcc);
+      }
+    } else fd_list.add(fd);
+  }
 }
