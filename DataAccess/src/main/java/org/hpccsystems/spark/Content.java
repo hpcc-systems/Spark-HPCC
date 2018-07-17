@@ -134,8 +134,7 @@ public abstract class Content implements Serializable {
       rslt = ((RealContent)this).asReal();
     } else {
       StringBuilder sb = new StringBuilder();
-      sb.append("Cannot make a real from ");
-      sb.append(this.getTypeName());
+      sb.append("Field " + this.getName() + "(" + this.getTypeName() + ") cannot be represented as 'REAL'");
       throw new UnsupportedOperationException(sb.toString());
     }
     return rslt;
