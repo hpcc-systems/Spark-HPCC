@@ -17,9 +17,12 @@ package org.hpccsystems.spark;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonToken;
 
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
@@ -29,9 +32,6 @@ import org.hpccsystems.spark.thor.FieldDef;
 import org.hpccsystems.spark.thor.HpccSrcType;
 import org.hpccsystems.spark.thor.TypeDef;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
-
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonToken;
 
 /**
  * HPCC record definition.  Includes HPCC record info strings and derived

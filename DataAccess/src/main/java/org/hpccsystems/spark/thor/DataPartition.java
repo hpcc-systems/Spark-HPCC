@@ -16,9 +16,9 @@
 package org.hpccsystems.spark.thor;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;

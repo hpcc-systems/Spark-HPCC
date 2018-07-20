@@ -19,6 +19,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -40,6 +41,7 @@ public class HpccFile implements Serializable {
   private HpccPart[] parts;
   private RecordDef recordDefinition;
   private boolean isIndex;
+
   /**
    * Constructor for the HpccFile.  Captures the information
    * from the DALI Server for the
@@ -248,8 +250,10 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException when htere are errors reaching the THOR data.
    */
   public Dataset<Row> getDataframe(SparkSession session) throws HpccFileException{
-    HpccDataframeFactory factory = new HpccDataframeFactory(session);
-    return factory.getDataframe(this);
+    RecordDef rd = this.getRecordDefinition();
+    HpccPart[] fp = this.getFileParts();
+    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, rd)).toJavaRDD();
+    return session.createDataFrame(rdd, rd.asSchema());
   }
   /**
    * Is this an index?

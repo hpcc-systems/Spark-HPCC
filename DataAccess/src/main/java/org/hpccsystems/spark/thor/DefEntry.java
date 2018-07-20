@@ -15,10 +15,10 @@
  *******************************************************************************/
 package org.hpccsystems.spark.thor;
 
-import java.util.ArrayList;
 import java.io.Serializable;
+import java.util.ArrayList;
+
 import org.hpccsystems.spark.TargetColumn;
-import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 
 /**
  * Abstract class to map a DefToken sequence.

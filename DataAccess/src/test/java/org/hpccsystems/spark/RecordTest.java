@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
+import org.apache.spark.sql.Row;
 import org.hpccsystems.spark.thor.BinaryRecordReader;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FieldDef;
@@ -73,7 +74,7 @@ public class RecordTest {
           DataPartition dp = parts[i].getDataPartitionAt(j);
           BinaryRecordReader brr = new BinaryRecordReader(dp, rd);
           while (brr.hasNext()) {
-            Record rec = brr.getNext();
+            Row rec = brr.getNext();
             System.out.println(rec.toString());
           }
           System.out.println("completed part at index "+i);

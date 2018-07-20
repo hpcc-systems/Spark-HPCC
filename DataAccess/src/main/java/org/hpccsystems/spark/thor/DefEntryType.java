@@ -17,8 +17,9 @@ package org.hpccsystems.spark.thor;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.HashMap;
+import java.util.Iterator;
+
 import org.hpccsystems.spark.TargetColumn;
 
 /**

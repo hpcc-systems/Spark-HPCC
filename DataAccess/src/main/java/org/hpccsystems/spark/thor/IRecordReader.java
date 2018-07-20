@@ -16,7 +16,8 @@
 package org.hpccsystems.spark.thor;
 
 import org.hpccsystems.spark.HpccFileException;
-import org.hpccsystems.spark.Record;
+
+import org.apache.spark.sql.Row;
 
 /**
  * Interface for the HPCC Systems remote file readers.
@@ -35,5 +36,5 @@ public interface IRecordReader {
    * @return a record
    * @throws HpccFileException error on the back end, not recoverable
    */
-  public Record getNext() throws HpccFileException;
+  public Row getNext() throws HpccFileException;
 }
