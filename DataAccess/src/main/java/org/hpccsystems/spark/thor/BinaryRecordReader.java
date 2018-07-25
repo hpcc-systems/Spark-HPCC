@@ -18,25 +18,14 @@ package org.hpccsystems.spark.thor;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-import org.hpccsystems.spark.BinaryContent;
-import org.hpccsystems.spark.BinarySeqContent;
-import org.hpccsystems.spark.BooleanContent;
-import org.hpccsystems.spark.BooleanSeqContent;
-import org.hpccsystems.spark.Content;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.hpccsystems.spark.HpccFileException;
-import org.hpccsystems.spark.IntegerContent;
-import org.hpccsystems.spark.IntegerSeqContent;
-import org.hpccsystems.spark.RealContent;
-import org.hpccsystems.spark.RealSeqContent;
-import org.hpccsystems.spark.Record;
-import org.hpccsystems.spark.RecordContent;
 import org.hpccsystems.spark.RecordDef;
-import org.hpccsystems.spark.RecordSeqContent;
-import org.hpccsystems.spark.StringContent;
-import org.hpccsystems.spark.StringSeqContent;
+
+import scala.collection.JavaConverters;
 
 /**
  * Reads HPCC Cluster data in binary format.
@@ -92,20 +81,20 @@ public class BinaryRecordReader implements IRecordReader {
   /* (non-Javadoc)
    * @see org.hpccsystems.spark.thor.IRecordReader#getNext()
    */
-  public Record getNext() throws HpccFileException {
+  public Row getNext() throws HpccFileException {
     if (!this.hasNext()) {
       throw new NoSuchElementException("No next record!");
     }
-    Record rslt = null;
+    GenericRowWithSchema rslt = null;
     try {
       FieldDef fd = this.recDef.getRootDef();
       ParsedContent rec = parseRecord(this.curr, this.curr_pos, fd, this.defaultLE);
-      Content w = rec.getContent();
-      if (!(w instanceof RecordContent)) {
+
+      if (rec.getFields().length == 0) {
         throw new HpccFileException("RecordContent not found");
       }
-      Content[] fields = ((RecordContent)w).asFieldArray();
-      rslt = new Record(fields, pc.getFilename(), part, pos+curr_pos);
+
+      rslt = new GenericRowWithSchema(rec.getFields(),fd.asSchema());
       this.curr_pos += rec.getConsumed();
     } catch (UnparsableContentException e) {
       throw new HpccFileException("Failed to parse next record", e);
@@ -123,16 +112,14 @@ public class BinaryRecordReader implements IRecordReader {
    */
   private static ParsedContent parseRecord(byte[] src, int start, FieldDef def,
         boolean default_little_endian) throws UnparsableContentException {
-    Iterator<FieldDef> iter = def.getDefinitions();
-    ArrayList<Content> fields = new ArrayList<Content>(def.getNumFields());
     int consumed = 0;
     int dataLen = 0;
     int dataStart = 0;
     int dataStop = 0;
-    boolean allFlag = false;
-    String s = "";
-    while (iter.hasNext()) {
-      FieldDef fd = iter.next();
+    ArrayList<Object> fields = new ArrayList<Object>(def.getNumFields());
+
+    for (int fieldIndex = 0; fieldIndex < def.getNumFields(); fieldIndex++) {
+      FieldDef fd = def.getDef(fieldIndex);
       int testLength = (fd.isFixed())  ? fd.getDataLen()   : 4;
       if (start+consumed+testLength > src.length) {
         StringBuilder sb = new StringBuilder();
@@ -146,14 +133,14 @@ public class BinaryRecordReader implements IRecordReader {
           // fixed number of bytes in type info
           long v = getInt(src, start+consumed, fd.getDataLen(),
                           fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
-          fields.add(new IntegerContent(fd.getFieldName(), v));
+          fields.add(new Long(v));
           consumed += fd.getDataLen();
           break;
         case REAL:
           // fixed number of bytes (4 or 8) in type info
           double u = getReal(src, start+consumed, fd.getDataLen(),
                             fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
-          fields.add(new RealContent(fd.getFieldName(), u));
+          fields.add(new Double(u));
           consumed += fd.getDataLen();
           break;
         case BINARY:
@@ -169,7 +156,7 @@ public class BinaryRecordReader implements IRecordReader {
             throw new UnparsableContentException("Data ended prematurely");
           }
           byte[] bytes = Arrays.copyOfRange(src, dataStart, dataStart+dataLen);
-          fields.add(new BinaryContent(fd.getFieldName(), bytes));
+          fields.add(bytes);
           consumed += dataLen;
           break;
         case BOOLEAN:
@@ -178,7 +165,7 @@ public class BinaryRecordReader implements IRecordReader {
           for (int i=0; i<fd.getDataLen(); i++) {
             flag = flag | (src[start+consumed+i] == 0) ? false  : true;
           }
-          fields.add(new BooleanContent(fd.getFieldName(), flag));
+          fields.add(new Boolean(flag));
           consumed += fd.getDataLen();
           break;
         case STRING:
@@ -197,8 +184,8 @@ public class BinaryRecordReader implements IRecordReader {
           if (start+consumed+dataLen > src.length) {
             throw new UnparsableContentException("String data ended early");
           }
-          s = getString(fd.getSourceType(), src, start+consumed, dataLen);
-          fields.add(new StringContent(fd.getFieldName(), s));
+          String s = getString(fd.getSourceType(), src, start+consumed, dataLen);
+          fields.add(s);
           consumed += dataLen;
           break;
         case RECORD:
@@ -206,56 +193,52 @@ public class BinaryRecordReader implements IRecordReader {
           // Length for each field defines record length
           ParsedContent this_rec = parseRecord(src, start+consumed,
                                               fd, default_little_endian);
-          Content[] rec_flds=((RecordContent)this_rec.getContent()).asFieldArray();
-          fields.add(new RecordContent(fd, rec_flds));
+          fields.add(new GenericRowWithSchema(this_rec.getFields(),fd.asSchema()));
           consumed += this_rec.getConsumed();
           break;
         case SET_OF_INTEGER:
-          // 1 byte all flag followed by full word length.  Individual lengths
-          // specified by the type def
-          allFlag = (src[start+consumed]==0)  ? false  : true;
           consumed++;
           dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
           consumed+=4;
           if (start+consumed+dataLen>src.length) {
             throw new UnparsableContentException("Set ended early");
           }
-          long[] integers = new long[dataLen/fd.getChildLen()];
-          if (dataLen != integers.length*fd.getChildLen()) {
+
+          int numIntegers = dataLen/fd.getChildLen();
+          if (dataLen != numIntegers*fd.getChildLen()) {
             throw new UnparsableContentException("integer size and set size error");
           }
-          for (int i=0; i<integers.length; i++) {
-            integers[i] = getInt(src, start+consumed, fd.getChildLen(),
-                fd.getSourceType()==HpccSrcType.LITTLE_ENDIAN);
+          
+          ArrayList<Long> integers = new ArrayList<Long>(numIntegers);
+          for (int i=0; i<numIntegers; i++) {
+            integers.add(getInt(src, start+consumed, fd.getChildLen(),
+                fd.getSourceType()==HpccSrcType.LITTLE_ENDIAN));
             consumed += fd.getChildLen();
           }
-          fields.add(new IntegerSeqContent(fd, integers, allFlag));
+          fields.add(JavaConverters.asScalaBufferConverter(integers).asScala().seq());
           break;
         case SET_OF_REAL:
-          // 1 byte all flag followed by full word length.  Individual lengths
-          // specified by the type def
-          allFlag = (src[start+consumed]==0)  ? false  : true;
           consumed++;
           dataLen = (int)getInt(src, start+consumed, 4, true);
           consumed+=4;
           if (start+consumed+dataLen>src.length) {
             throw new UnparsableContentException("Set ended early");
           }
-          double[] reals = new double[dataLen/fd.getChildLen()];
-          if (dataLen != reals.length*fd.getChildLen()) {
+
+          int numReals = dataLen/fd.getChildLen();
+          if (dataLen != numReals*fd.getChildLen()) {
             throw new UnparsableContentException("reals size and set size error");
           }
-          for (int i=0; i<reals.length; i++) {
-            reals[i] = getReal(src, start+consumed, fd.getChildLen(),
-                fd.getSourceType()==HpccSrcType.LITTLE_ENDIAN);
+          
+          ArrayList<Double> reals = new ArrayList<Double>(numReals);
+          for (int i=0; i<numReals; i++) {
+            reals.add(getReal(src, start+consumed, fd.getChildLen(),
+                fd.getSourceType()==HpccSrcType.LITTLE_ENDIAN));
             consumed += fd.getChildLen();
           }
-          fields.add(new RealSeqContent(fd, reals, allFlag));
+          fields.add(JavaConverters.asScalaBufferConverter(reals).asScala().seq());
           break;
         case SET_OF_BINARY:
-          // 1 byte all flag followed by full word length.  Individual lengths
-          // specified by the type def if fixed or a full word length prefix
-          allFlag = (src[start+consumed]==0)  ? false  : true;
           consumed++;
           dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
           consumed+=4;
@@ -282,35 +265,33 @@ public class BinaryRecordReader implements IRecordReader {
             consumed += dataLen;
             dataStart = start + consumed;
           }
-          fields.add(new BinarySeqContent(fd, wb.toArray(new byte[0][]), allFlag));
+          fields.add(JavaConverters.asScalaBufferConverter(wb).asScala().seq());
           break;
         case SET_OF_BOOLEAN:
-          // 1 byte all flag followed by full word length.  Individual lengths
-          // specified by the type def
-          allFlag = (src[start+consumed]==0)  ? false  : true;
           consumed++;
           dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
           consumed+=4;
           if (start+consumed+dataLen>src.length) {
             throw new UnparsableContentException("Set ended early");
           }
-          boolean bools[] = new boolean[dataLen/fd.getChildLen()];
-          if (dataLen != bools.length*fd.getChildLen()) {
+
+          int numBools = dataLen/fd.getChildLen();
+          if (dataLen != numBools*fd.getChildLen()) {
             throw new UnparsableContentException("bools size and set size error");
           }
-          for (int i=0; i<bools.length; i++) {
-            bools[i] = false;
+
+          ArrayList<Boolean> bools = new ArrayList<Boolean>(numBools);
+          for (int i=0; i<numBools; i++) {
+            boolean value = false;
             for (int j=0; j<fd.getChildLen(); j++) {
-              bools[i] = bools[i] | (src[start+consumed+j] == 0)  ? false  : true;
+              value = value | (src[start+consumed+j] == 0)  ? false  : true;
             }
             consumed += fd.getChildLen();
+            bools.add(new Boolean(value));
           }
-          fields.add(new BooleanSeqContent(fd, bools, allFlag));
+          fields.add(JavaConverters.asScalaBufferConverter(bools).asScala().seq());
           break;
         case SET_OF_STRING:
-          // 1 byte all flag followed by full word length.  Individual lengths
-          // specified as described for STRING above.
-          allFlag = (src[start+consumed]==0)  ? false  : true;
           consumed++;
           dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
           consumed+=4;
@@ -336,7 +317,7 @@ public class BinaryRecordReader implements IRecordReader {
             ws.add(s);
             consumed += dataLen;
           }
-          fields.add(new StringSeqContent(fd, ws.toArray(new String[0]), allFlag));
+          fields.add(JavaConverters.asScalaBufferConverter(ws).asScala().seq());
           break;
         case SEQ_OF_RECORD:
           // Size of the child dataset is first full word
@@ -345,27 +326,23 @@ public class BinaryRecordReader implements IRecordReader {
           if (start+consumed+dataLen>src.length) {
             throw new UnparsableContentException("Dataset ended early");
           }
-          ArrayList<RecordContent> wr = new ArrayList<RecordContent>();
+          ArrayList<GenericRowWithSchema> wr = new ArrayList<GenericRowWithSchema>();
           dataStart = start + consumed;
           dataStop = dataStart + dataLen;
           while (dataStart < dataStop) {
             ParsedContent child = parseRecord(src, dataStart,
                                               fd, default_little_endian);
-            consumed += child.getConsumed();
-            wr.add(new RecordContent(fd.recordName(),
-                            ((RecordContent)child.getContent()).asFieldArray()));
+            wr.add(new GenericRowWithSchema(child.getFields(),fd.asSchema()));
             dataStart = start + consumed;
           }
-          fields.add(new RecordSeqContent(fd, wr.toArray(new RecordContent[0])));
+          fields.add(JavaConverters.asScalaBufferConverter(wr).asScala().seq());
           break;
         default:
           String msg = "Unhandled type: " + fd.getFieldType().toString();
           throw new UnparsableContentException(msg);
       }
     }
-    RecordContent rc = new RecordContent(def.getFieldName(),
-                                         fields.toArray(new Content[0]));
-    ParsedContent rslt = new ParsedContent(rc, consumed);
+    ParsedContent rslt = new ParsedContent(fields.toArray(), consumed);
     return rslt;
   }
   /**

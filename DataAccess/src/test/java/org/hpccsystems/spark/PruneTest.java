@@ -14,17 +14,12 @@
  *     limitations under the License.
  *******************************************************************************/
 package org.hpccsystems.spark;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.io.InputStreamReader;
 import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 
 import org.hpccsystems.spark.thor.DefEntryRoot;
 import org.hpccsystems.spark.thor.DefToken;
-import org.hpccsystems.spark.thor.DefEntry;
-import org.hpccsystems.spark.thor.DefEntryRoot;
-import org.hpccsystems.spark.thor.FieldDef;
-import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.ws.client.HPCCWsDFUClient;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
 import org.hpccsystems.ws.client.utils.Connection;

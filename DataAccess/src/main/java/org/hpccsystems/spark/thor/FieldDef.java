@@ -23,6 +23,7 @@ import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
 import org.hpccsystems.spark.FieldType;
 
 import com.fasterxml.jackson.core.JsonToken;
@@ -135,6 +136,23 @@ public class FieldDef implements Serializable {
    * @return true when fixed length
    */
   public boolean isFixed() { return this.fixedLength; }
+
+  /**
+   * Translates a FieldDef into a StructType schema
+   * @return StructType
+   */
+  public StructType asSchema() {
+    if (this.fieldType != FieldType.RECORD) {
+      return null;
+    }
+
+    StructField[] fields = new StructField[this.getNumDefs()];
+    for (int i=0; i<this.getNumDefs(); i++) {
+      fields[i] = this.getDef(i).asSchemaElement();
+    }
+    return DataTypes.createStructType(fields);
+  }
+
   /**
    * translate a FieldDef into a StructField object of the schema
    * @return

@@ -17,8 +17,9 @@ package org.hpccsystems.spark;
 
 import java.io.Serializable;
 import java.util.Arrays;
-import org.hpccsystems.spark.thor.DefToken;
+
 import org.hpccsystems.spark.thor.DefEntry;
+import org.hpccsystems.spark.thor.DefToken;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 
 /**

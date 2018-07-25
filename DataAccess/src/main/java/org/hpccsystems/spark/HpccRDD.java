@@ -24,37 +24,37 @@ import org.apache.spark.Partition;
 import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.function.Function;
+import org.apache.spark.mllib.linalg.DenseVector;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.types.StructType;
 
 import scala.collection.JavaConverters;
-import scala.collection.Seq;
-import scala.collection.mutable.ArraySeq;
+import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
 
 /**
- * The implementation of the RDD<Record> (an RDD of type Record data) class.
+ * The implementation of the RDD<GenericRowWithSchema> 
  *
  */
-public class HpccRDD extends RDD<Record> implements Serializable {
+public class HpccRDD extends RDD<Row> implements Serializable {
   private static final long serialVersionUID = 1L;
-  private static final ClassTag<Record> CT_RECORD
-                          = ClassTag$.MODULE$.apply(Record.class);
-  private static Seq<Dependency<RDD<Record>>> empty
-          = new ArraySeq<Dependency<RDD<Record>>>(0);
+  private static final ClassTag<Row> CT_RECORD
+                          = ClassTag$.MODULE$.apply(Row.class);
   //
   private HpccPart[] parts;
   private RecordDef def;
+
   /**
    * @param _sc
    * @param
    */
   public HpccRDD(SparkContext _sc, HpccPart[] parts, RecordDef def) {
-    super(_sc, (Seq)empty, CT_RECORD);
+    super(_sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
     this.parts = new HpccPart[parts.length];
     for (int i=0; i<parts.length; i++) {
       this.parts[i] = parts[i];
@@ -65,59 +65,85 @@ public class HpccRDD extends RDD<Record> implements Serializable {
    * Wrap this RDD as a JavaRDD so the Java API can be used.
    * @return a JavaRDD wrapper of the HpccRDD.
    */
-  public JavaRDD<Record> asJavaRDD() {
-    JavaRDD<Record> jRDD = new JavaRDD<Record>(this, CT_RECORD);
+  public JavaRDD<Row> asJavaRDD() {
+    JavaRDD<Row> jRDD = new JavaRDD<Row>(this, CT_RECORD);
     return jRDD;
   }
   /**
    * Transform to an RDD of labeled points for MLLib supervised learning.
    * @param labelName the field name of the label datg
    * @param dimNames the field names for the dimensions
+   * @throws IllegalArgumentException
    * @return
    */
-  public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames) {
-    JavaRDD<Record> jRDD = this.asJavaRDD();
-    Function<Record, LabeledPoint> map_f = new Function<Record, LabeledPoint>() {
-      static private final long serialVersionUID = 1L;
-      public LabeledPoint call(Record r) {
-        return r.asLabeledPoint(labelName, dimNames);
+  public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames) 
+    throws IllegalArgumentException {
+    StructType schema = this.def.asSchema();
+
+    // Precompute indices for the requested fields
+    // Throws illegal argument exception if field cannot be found
+    int labelIndex = schema.fieldIndex(labelName);
+    int[] dimIndices = new int[dimNames.length];
+    for (int i = 0; i < dimIndices.length; i++) {
+      dimIndices[i] = schema.fieldIndex(dimNames[i]);
+    }
+
+    // Map each row to a labeled point using the precomputed indices 
+    JavaRDD<Row> jRDD = this.asJavaRDD();
+    return jRDD.map( (row) -> {
+      double label = row.getDouble(labelIndex);
+      double[] dims = new double[dimIndices.length];
+      for (int i = 0; i < dimIndices.length; i++) {
+        dims[i] = row.getDouble(dimIndices[i]);
       }
-    };
-    return jRDD.map(map_f).rdd();
+      return new LabeledPoint(label,new DenseVector(dims));
+    }).rdd();
   }
   /**
    * Transform to mllib.linalg.Vectors for ML Lib machine learning.
    * @param dimNames the field names for the dimensions
+   * @throws IllegalArgumentException
    * @return
    */
-  public RDD<Vector> makeMLLibVector(String[] dimNames) {
-    JavaRDD<Record> jRDD = this.asJavaRDD();
-    Function<Record, Vector> map_f = new Function<Record, Vector>() {
-      static private final long serialVersionUID = 1L;
-      public Vector call(Record r) {
-        return r.asMlLibVector(dimNames);
+  public RDD<Vector> makeMLLibVector(String[] dimNames) 
+    throws IllegalArgumentException {
+    StructType schema = this.def.asSchema();
+
+    // Precompute indices for the requested fields
+    // Throws illegal argument exception if field cannot be found
+    int[] dimIndices = new int[dimNames.length];
+    for (int i = 0; i < dimIndices.length; i++) {
+      dimIndices[i] = schema.fieldIndex(dimNames[i]);
+    }
+    
+    // Map each row to a vector using the precomputed indices
+    JavaRDD<Row> jRDD = this.asJavaRDD();
+    return jRDD.map( (row) -> {
+      double[] dims = new double[dimIndices.length];
+      for (int i = 0; i < dimIndices.length; i++) {
+        dims[i] = row.getDouble(dimIndices[i]);
       }
-    };
-    return jRDD.map(map_f).rdd();
+      return (Vector) new DenseVector(dims);
+    }).rdd();
   }
 
   /* (non-Javadoc)
    * @see org.apache.spark.rdd.RDD#compute(org.apache.spark.Partition, org.apache.spark.TaskContext)
    */
   @Override
-  public InterruptibleIterator<Record> compute(Partition p_arg, TaskContext ctx) {
+  public InterruptibleIterator<Row> compute(Partition p_arg, TaskContext ctx) {
     final HpccPart this_part = (HpccPart) p_arg;
     final RecordDef rd = this.def;
-    Iterator<Record> iter = new Iterator<Record>() {
+    Iterator<Row> iter = new Iterator<Row>() {
       private HpccRemoteFileReader rfr = new HpccRemoteFileReader(this_part, rd);
       //
       public boolean hasNext() { return this.rfr.hasNext();}
-      public Record next() { return this.rfr.next(); }
+      public Row next() { return this.rfr.next(); }
     };
-    scala.collection.Iterator<Record> s_iter
+    scala.collection.Iterator<Row> s_iter
         = JavaConverters.asScalaIteratorConverter(iter).asScala();
-    InterruptibleIterator<Record> rslt
-        = new InterruptibleIterator<Record>(ctx, s_iter);
+    InterruptibleIterator<Row> rslt
+        = new InterruptibleIterator<Row>(ctx, s_iter);
     return rslt;
   }
 

@@ -15,21 +15,19 @@
  *******************************************************************************/
 package org.hpccsystems.spark.thor;
 
-import org.hpccsystems.spark.Content;
-
 /**
  * Container for parsing holding the content object and the items
  * consumed.
  */
 public class ParsedContent {
   private final int consumed;
-  private final Content item;
+  private final Object[] fields;
   /**
    * construct the holder
    */
-  public ParsedContent(Content i, int c) {
+  public ParsedContent(Object[] f, int c) {
+    this.fields = f;
     this.consumed = c;
-    this.item = i;
   }
   /**
    * The number of input units consumed to make this content item.
@@ -40,5 +38,5 @@ public class ParsedContent {
    * The content item
    * @return item
    */
-  public Content getContent() { return item; }
+  public Object[] getFields() { return fields; }
 }

@@ -15,6 +15,7 @@
  *******************************************************************************/
 package org.hpccsystems.spark;
 
+import org.apache.spark.sql.Row;
 import org.hpccsystems.spark.thor.BinaryRecordReader;
 import org.hpccsystems.spark.thor.DataPartition;
 
@@ -66,8 +67,8 @@ public class HpccRemoteFileReader {
    * Return next record
    * @return the record
    */
-  public Record next() {
-    Record rslt = null;
+  public Row next() {
+    Row rslt = null;
     try {
       rslt = brr.getNext();
     } catch (HpccFileException e) {
