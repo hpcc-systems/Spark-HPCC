@@ -30,6 +30,8 @@ import org.hpccsystems.ws.client.HPCCWsDFUClient;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
 import org.hpccsystems.ws.client.utils.Connection;
 
+import org.apache.spark.sql.execution.python.EvaluatePython;
+
 /**
  * Access to file content on a collection of one or more HPCC
  * clusters.
@@ -41,6 +43,11 @@ public class HpccFile implements Serializable {
   private HpccPart[] parts;
   private RecordDef recordDefinition;
   private boolean isIndex;
+
+  // Make sure Python picklers have been registered
+  static {
+      EvaluatePython.registerPicklers();
+  }
 
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -232,6 +239,16 @@ public class HpccFile implements Serializable {
    */
   public RecordDef getRecordDefinition() throws HpccFileException {
     return recordDefinition;
+  }
+  /**
+   * Make a Spark Resilient Distributed Dataset (RDD) that provides access
+   * to THOR based datasets. Uses existing SparkContext, allows this function
+   * to be used from PySpark.
+   * @return An RDD of THOR data.
+   * @throws HpccFileException When there are errors reaching the THOR data
+   */
+  public HpccRDD getRDD() throws HpccFileException {
+    return getRDD(SparkContext.getOrCreate());
   }
   /**
    * Make a Spark Resilient Distributed Dataset (RDD) that provides access
