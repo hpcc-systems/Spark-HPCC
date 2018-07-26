@@ -275,10 +275,6 @@ public class HpccFile implements Serializable {
     DFUFileDetailInfo fd = hpcc.getFileDetails(fileName, "", true, false);
     if (fd.getIsSuperfile()) {
       String[] subFileNames = fd.getSubfiles();
-      if (subFileNames.length > 1) {
-        // need HPCC-20039
-        throw new Exception("Multiple sub-files not supported.");
-      }
       for (int i=0; i<subFileNames.length; i++) {
         recurseFDI(fd_list, subFileNames[i], hpcc);
       }
