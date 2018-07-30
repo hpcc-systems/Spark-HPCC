@@ -41,6 +41,9 @@ public class PlainConnection {
   public static final Charset HPCCCharSet = Charset.forName("ISO-8859-1");
   public static final char RFCStreamReadCmd = '\u002B'; //43 in decimal, value associated w/ stream read in dafilesrv
   public static final int RFCStreamNoError = '\u0000';
+
+  // Note: The platform may respond with more data than this if records are larger than this limit.
+  public static final int MaxReadSizeKB = 4096;
   /**
    * A plain socket connect to a THOR node for remote read
    * @param hpccPart the remote file name and IP
@@ -238,6 +241,7 @@ public class PlainConnection {
         + this.recDef.getJsonOutputDef().length());
     sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\", \n");
+    sb.append("\"replyLimit\" : " + PlainConnection.MaxReadSizeKB + ",\n");
     sb.append(makeNodeObject());
     sb.append("\n}\n");
     return sb.toString();
@@ -293,6 +297,7 @@ public class PlainConnection {
         + (int)(this.cursorBin.length*1.4));
     sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\",\n");
+    sb.append("\"replyLimit\" : " + PlainConnection.MaxReadSizeKB + ",\n");
     sb.append(makeNodeObject());
     sb.append(",\n");
     sb.append("  \"cursorBin\" : \"");
