@@ -38,6 +38,7 @@ public class PlainConnection {
   private boolean simulateFail;
   private boolean forceCursorUse;
   private byte[] cursorBin;
+  private final byte[] emptyBuffer = new byte[0];
   private int handle;
   private DataPartition dataPart;
   private RecordDef recordDefinition;
@@ -151,21 +152,26 @@ public class PlainConnection {
   }
   /**
    * Read a block of the remote file from a THOR node
+   * @param buffer Will attempt to reuse the provided buffer. Passing null will allocate a new buffer.
    * @return the block sent by the node
    * @throws HpccFileException a problem with the read operation
    */
-  public byte[] readBlock()
+  public byte[] readBlock(byte[] buffer) 
     throws HpccFileException {
-    byte[] rslt = new byte[0];
-    if (this.closed) return rslt; // no data left to send
-    if (!this.active) // attempt to do the first read
+    if (this.closed)
     {
-        makeActive();
+      return this.emptyBuffer; // no data left to send
+    } 
+
+    if (!this.active) // attempt to the first read
+    {
+      makeActive();
     }
+
     int len = readReplyLen();
     if (len==0) {
       this.closed = true;
-      return rslt;
+      return this.emptyBuffer;
     }
     if (len < 4 ) {
       throw new HpccFileException("Early data termination, no handle");
@@ -176,7 +182,7 @@ public class PlainConnection {
         len = retryWithCursor();
         if (len==0) {
           this.closed = true;
-          return rslt;
+          return this.emptyBuffer;
         }
         if (len < 4) {
           throw new HpccFileException("Early data termination on retry, no handle");
@@ -189,22 +195,30 @@ public class PlainConnection {
     } catch (IOException e) {
       throw new HpccFileException("Error during read block", e);
     }
+    int dataLen = 0;
     try {
-      int dataLen = dis.readInt();
+      dataLen = dis.readInt();
       if (dataLen == 0) {
         closeConnection();
-        return rslt;
+        return this.emptyBuffer;
       }
 
-      rslt = new byte[dataLen];
-      for (int i=0; i<dataLen; i++) rslt[i] = dis.readByte();
+      if (buffer == null || buffer.length != dataLen) {
+        buffer = new byte[dataLen];
+      } 
+      dis.readFully(buffer,0,dataLen);
+
       int cursorLen = dis.readInt();
       if (cursorLen == 0) {
+        log.error("Unable to read cursor location from network stream. Closing connection.");
         closeConnection();
-        return rslt;
+        return buffer;
       }
-      this.cursorBin = new byte[cursorLen];
-      for (int i=0; i<cursorLen; i++) this.cursorBin[i] = dis.readByte();
+      if (this.cursorBin == null || cursorLen > this.cursorBin.length) {
+        this.cursorBin = new byte[cursorLen];
+      }
+      dis.readFully(this.cursorBin);
+
     } catch (IOException e) {
       throw new HpccFileException("Error during read block", e);
     }
@@ -220,7 +234,8 @@ public class PlainConnection {
     } catch (IOException e) {
       throw new HpccFileException("Failure sending read ahead transaction", e);
     }
-    return rslt;
+
+    return buffer;
   }
   /**
    * Open client socket to the primary and open the streams
@@ -244,6 +259,11 @@ public class PlainConnection {
                 {
                     SSLSocketFactory ssf = (SSLSocketFactory) SSLSocketFactory.getDefault();
                     sock = (SSLSocket)ssf.createSocket();
+                    
+                    // Optimize for bandwidth over latency and connection time.
+                    // We are opening up a long standing connection and potentially reading a significant amount of data
+                    // So we don't care as much about individual packet latency or connection time overhead
+                    sock.setPerformancePreferences(0, 1, 2);
                     sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
 
                     log.debug("Attempting SSL handshake...");
@@ -255,6 +275,11 @@ public class PlainConnection {
                 {
                     SocketFactory sf = SocketFactory.getDefault();
                     sock = sf.createSocket();
+                    
+                    // Optimize for bandwidth over latency and connection time.
+                    // We are opening up a long standing connection and potentially reading a significant amount of data
+                    // So we don't care as much about individual packet latency or connection time overhead
+                    sock.setPerformancePreferences(0, 1, 2);
                     sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
                 }
                 log.debug("Connected: Remote address = " + sock.getInetAddress().toString() + " Remote port = " + sock.getPort());

@@ -17,6 +17,7 @@ package org.hpccsystems.spark;
 
 import java.io.Serializable;
 import java.util.Iterator;
+import java.util.Arrays;
 
 import org.apache.spark.Dependency;
 import org.apache.spark.InterruptibleIterator;
@@ -33,6 +34,7 @@ import org.apache.spark.sql.types.StructType;
 import org.hpccsystems.spark.thor.DataPartition;
 
 import scala.collection.JavaConverters;
+import scala.collection.Seq;
 import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
@@ -148,6 +150,12 @@ public class HpccRDD extends RDD<Row> implements Serializable {
     InterruptibleIterator<Row> rslt
         = new InterruptibleIterator<Row>(ctx, s_iter);
     return rslt;
+  }
+
+  @Override
+  public Seq<String> getPreferredLocations(Partition split) {
+    final DataPartition part = (DataPartition) split;
+    return JavaConverters.asScalaBufferConverter(Arrays.asList(part.getCopyLocations())).asScala().seq();
   }
 
   /* (non-Javadoc)
