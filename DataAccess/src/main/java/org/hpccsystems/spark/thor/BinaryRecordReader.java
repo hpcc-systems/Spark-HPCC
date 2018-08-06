@@ -15,11 +15,15 @@
  *******************************************************************************/
 package org.hpccsystems.spark.thor;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
+import org.apache.log4j.Logger;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.hpccsystems.spark.HpccFileException;
@@ -44,6 +48,15 @@ public class BinaryRecordReader implements IRecordReader {
   private static final Charset utf8Set = Charset.forName("UTF-8");
   private static final Charset utf16beSet = Charset.forName("UTF-16BE");
   private static final Charset utf16leSet = Charset.forName("UTF-16LE");
+  private static final Logger log = Logger.getLogger(BinaryRecordReader.class.getName());
+
+  // Used when reading decimal values
+  private static final long[] powTable = {1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000,
+                            10000000000L,100000000000L,1000000000000L,10000000000000L,100000000000000L,1000000000000000L};
+  private static final int[] signMap = { 0,0,0,0,0,0,0,0,0,0,+1,-1,+1,-1,+1,+1 };
+
+  private static final int MASK_32_LOWER_HALF = 0xffff;
+
   //
   /**
    * A Binary record reader.
@@ -88,14 +101,15 @@ public class BinaryRecordReader implements IRecordReader {
     GenericRowWithSchema rslt = null;
     try {
       FieldDef fd = this.recDef.getRootDef();
-      ParsedContent rec = parseRecord(this.curr, this.curr_pos, fd, this.defaultLE);
+      ArrayList<Object> fields = new ArrayList<Object>(fd.getNumDefs());
+      int consumed = parseRecord(this.curr, this.curr_pos, fields, fd, this.defaultLE);
 
-      if (rec.getFields().length == 0) {
+      if (fields.size() == 0) {
         throw new HpccFileException("RecordContent not found");
       }
 
-      rslt = new GenericRowWithSchema(rec.getFields(),fd.asSchema());
-      this.curr_pos += rec.getConsumed();
+      rslt = new GenericRowWithSchema(fields.toArray(),fd.asSchema());
+      this.curr_pos += consumed;
     } catch (UnparsableContentException e) {
       throw new HpccFileException("Failed to parse next record", e);
     }
@@ -107,243 +121,201 @@ public class BinaryRecordReader implements IRecordReader {
    * @param src the source byte array of the data from the HPCC cluster
    * @param start the start position in the buffer
    * @param def the field definition for the Record definition
-   * @return a ParsedContent container
+   * @return number of consumed bytes
    * @throws UnparsableContentException
    */
-  private static ParsedContent parseRecord(byte[] src, int start, FieldDef def,
+  private static int parseRecord(byte[] src, int start, ArrayList<Object> fields, FieldDef fd,
         boolean default_little_endian) throws UnparsableContentException {
     int consumed = 0;
     int dataLen = 0;
     int dataStart = 0;
     int dataStop = 0;
-    ArrayList<Object> fields = new ArrayList<Object>(def.getNumFields());
 
-    for (int fieldIndex = 0; fieldIndex < def.getNumFields(); fieldIndex++) {
-      FieldDef fd = def.getDef(fieldIndex);
-      int testLength = (fd.isFixed())  ? fd.getDataLen()   : 4;
-      if (start+consumed+testLength > src.length) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("Data ended prematurely parsing field ");
-        sb.append(fd.getFieldName());
-        throw new UnparsableContentException(sb.toString());
-      }
-      // Embedded field lengths are little endian
-      switch (fd.getFieldType()) {
-        case INTEGER:
-          // fixed number of bytes in type info
-          long v = getInt(src, start+consumed, fd.getDataLen(),
-                          fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
-          fields.add(new Long(v));
-          consumed += fd.getDataLen();
-          break;
-        case REAL:
-          // fixed number of bytes (4 or 8) in type info
-          double u = getReal(src, start+consumed, fd.getDataLen(),
-                            fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
-          fields.add(new Double(u));
-          consumed += fd.getDataLen();
-          break;
-        case BINARY:
-          // full word length followed by data bytes or length in type
-          // definition when fixed (e.g., DATA v DATA20)
-          if (fd.isFixed()) dataLen = fd.getDataLen();
-          else {
-            dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
-            consumed += 4;
-          }
-          dataStart = start+consumed;
-          if (dataLen+dataStart > src.length) {
-            throw new UnparsableContentException("Data ended prematurely");
-          }
-          byte[] bytes = Arrays.copyOfRange(src, dataStart, dataStart+dataLen);
-          fields.add(bytes);
-          consumed += dataLen;
-          break;
-        case BOOLEAN:
-          // fixed length for each boolean value specified by type def
-          boolean flag = false;
-          for (int i=0; i<fd.getDataLen(); i++) {
-            flag = flag | (src[start+consumed+i] == 0) ? false  : true;
-          }
-          fields.add(new Boolean(flag));
-          consumed += fd.getDataLen();
-          break;
-        case STRING:
-          // fixed and variable length strings.  utf8 and utf-16 have
-          // length specified in code points.  Fixed length UTF-16 may
-          // have an illegal end as a high surrogate.  If so, terminal
-          // high surrogate is blotted.
-          if (fd.isFixed()) {
-            dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed,
-                                   fd.getDataLen());
-          } else {
-            int cp = ((int)getInt(src, start+consumed, 4, default_little_endian));
-            dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed+4, cp);
-            consumed += 4;
-          }
-          if (start+consumed+dataLen > src.length) {
-            throw new UnparsableContentException("String data ended early");
-          }
-          String s = getString(fd.getSourceType(), src, start+consumed, dataLen);
-          fields.add(s);
-          consumed += dataLen;
-          break;
-        case RECORD:
-          // Single instance of structure
-          // Length for each field defines record length
-          ParsedContent this_rec = parseRecord(src, start+consumed,
-                                              fd, default_little_endian);
-          fields.add(new GenericRowWithSchema(this_rec.getFields(),fd.asSchema()));
-          consumed += this_rec.getConsumed();
-          break;
-        case SET_OF_INTEGER:
-          consumed++;
-          dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
-          consumed+=4;
-          if (start+consumed+dataLen>src.length) {
-            throw new UnparsableContentException("Set ended early");
-          }
-
-          int numIntegers = dataLen/fd.getChildLen();
-          if (dataLen != numIntegers*fd.getChildLen()) {
-            throw new UnparsableContentException("integer size and set size error");
-          }
-          
-          ArrayList<Long> integers = new ArrayList<Long>(numIntegers);
-          for (int i=0; i<numIntegers; i++) {
-            integers.add(getInt(src, start+consumed, fd.getChildLen(),
-                fd.getSourceType()==HpccSrcType.LITTLE_ENDIAN));
-            consumed += fd.getChildLen();
-          }
-          fields.add(JavaConverters.asScalaBufferConverter(integers).asScala().seq());
-          break;
-        case SET_OF_REAL:
-          consumed++;
-          dataLen = (int)getInt(src, start+consumed, 4, true);
-          consumed+=4;
-          if (start+consumed+dataLen>src.length) {
-            throw new UnparsableContentException("Set ended early");
-          }
-
-          int numReals = dataLen/fd.getChildLen();
-          if (dataLen != numReals*fd.getChildLen()) {
-            throw new UnparsableContentException("reals size and set size error");
-          }
-          
-          ArrayList<Double> reals = new ArrayList<Double>(numReals);
-          for (int i=0; i<numReals; i++) {
-            reals.add(getReal(src, start+consumed, fd.getChildLen(),
-                fd.getSourceType()==HpccSrcType.LITTLE_ENDIAN));
-            consumed += fd.getChildLen();
-          }
-          fields.add(JavaConverters.asScalaBufferConverter(reals).asScala().seq());
-          break;
-        case SET_OF_BINARY:
-          consumed++;
-          dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
-          consumed+=4;
-          if (start+consumed+dataLen>src.length) {
-            throw new UnparsableContentException("Set ended early");
-          }
-          ArrayList<byte[]> wb = new ArrayList<byte[]>();
-          dataStart = start + consumed;
-          dataStop = dataStart + dataLen;
-          while (start + consumed < dataStop) {
-            if (fd.getChildLen() > 0) dataLen = fd.getChildLen();
-            else {
-              if (dataStart + 4 > dataStop) { // room for length?
-                throw new UnparsableContentException("Early end of data");
-              }
-              dataLen = (int)getInt(src, dataStart, 4, default_little_endian);
-              consumed += 4;
-            }
-            dataStart = start + consumed;
-            if (dataStart + dataLen > dataStop) {
-              throw new UnparsableContentException("Bad element length in set");
-            }
-            wb.add(Arrays.copyOfRange(src, dataStart, dataStart+dataLen));
-            consumed += dataLen;
-            dataStart = start + consumed;
-          }
-          fields.add(JavaConverters.asScalaBufferConverter(wb).asScala().seq());
-          break;
-        case SET_OF_BOOLEAN:
-          consumed++;
-          dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
-          consumed+=4;
-          if (start+consumed+dataLen>src.length) {
-            throw new UnparsableContentException("Set ended early");
-          }
-
-          int numBools = dataLen/fd.getChildLen();
-          if (dataLen != numBools*fd.getChildLen()) {
-            throw new UnparsableContentException("bools size and set size error");
-          }
-
-          ArrayList<Boolean> bools = new ArrayList<Boolean>(numBools);
-          for (int i=0; i<numBools; i++) {
-            boolean value = false;
-            for (int j=0; j<fd.getChildLen(); j++) {
-              value = value | (src[start+consumed+j] == 0)  ? false  : true;
-            }
-            consumed += fd.getChildLen();
-            bools.add(new Boolean(value));
-          }
-          fields.add(JavaConverters.asScalaBufferConverter(bools).asScala().seq());
-          break;
-        case SET_OF_STRING:
-          consumed++;
-          dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
-          consumed+=4;
-          if (start+consumed+dataLen>src.length) {
-            throw new UnparsableContentException("Set ended early");
-          }
-          ArrayList<String> ws = new ArrayList<String>();
-          dataStart = start + consumed;
-          dataStop = dataStart + dataLen;
-          while (start + consumed < dataStop) {
-            if (fd.getChildLen() > 0) {
-              dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed,
-                                     fd.getChildLen());
-            } else {
-              int cp = ((int)getInt(src, start+consumed, 4, default_little_endian));
-              dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed+4, cp);
-              consumed += 4;
-            }
-            if (start+consumed+dataLen > dataStop) {
-              throw new UnparsableContentException("String data ended early");
-            }
-            s = getString(fd.getSourceType(), src, start+consumed, dataLen);
-            ws.add(s);
-            consumed += dataLen;
-          }
-          fields.add(JavaConverters.asScalaBufferConverter(ws).asScala().seq());
-          break;
-        case SEQ_OF_RECORD:
-          // Size of the child dataset is first full word
-          dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
-          consumed+=4;
-          if (start+consumed+dataLen>src.length) {
-            throw new UnparsableContentException("Dataset ended early");
-          }
-          ArrayList<GenericRowWithSchema> wr = new ArrayList<GenericRowWithSchema>();
-          dataStart = start + consumed;
-          dataStop = dataStart + dataLen;
-          while (dataStart < dataStop) {
-            ParsedContent child = parseRecord(src, dataStart,
-                                              fd, default_little_endian);
-            wr.add(new GenericRowWithSchema(child.getFields(),fd.asSchema()));
-            dataStart = start + consumed;
-          }
-          fields.add(JavaConverters.asScalaBufferConverter(wr).asScala().seq());
-          break;
-        default:
-          String msg = "Unhandled type: " + fd.getFieldType().toString();
-          throw new UnparsableContentException(msg);
-      }
+    int testLength = (fd.isFixed()) ? fd.getDataLen()   : 4;
+    if (start+consumed+testLength > src.length) {
+      StringBuilder sb = new StringBuilder();
+      sb.append("Data ended prematurely parsing field ");
+      sb.append(fd.getFieldName());
+      throw new UnparsableContentException(sb.toString());
     }
-    ParsedContent rslt = new ParsedContent(fields.toArray(), consumed);
-    return rslt;
+  
+      // Embedded field lengths are little endian
+    switch (fd.getFieldType()) {
+      case INTEGER:
+        // fixed number of bytes in type info
+        long intValue = 0;
+        if (fd.isUnsigned()) {
+          intValue = getUnsigned(src, start+consumed, fd.getDataLen(),
+                          fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
+          if (intValue < 0) {
+            throw new UnparsableContentException("Integer overflow. Max 8 byte integer value: " + Long.MAX_VALUE);
+          }
+        } else {
+          intValue = getInt(src, start+consumed, fd.getDataLen(),
+                          fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
+        }
+        fields.add(new Long(intValue));
+        consumed += fd.getDataLen();
+        break;
+      case REAL:
+        // fixed number of bytes (4 or 8) in type info
+        double u = getReal(src, start+consumed, fd.getDataLen(),
+                          fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
+        fields.add(new Double(u));
+        consumed += fd.getDataLen();
+        break;
+      case DECIMAL:
+        BigDecimal decValue = null;
+
+        int numDigits = fd.getDataLen() & MASK_32_LOWER_HALF;
+        if (fd.isUnsigned()) {
+          dataLen = (numDigits+1) / 2;
+        } else {
+          dataLen = (numDigits+2) / 2;
+        }
+
+        dataStart = start+consumed;
+        if (dataLen+dataStart > src.length) {
+         throw new UnparsableContentException("Data ended prematurely");
+        }
+
+        if (fd.isUnsigned()) {
+          decValue = getUnsignedDecimal(src, dataStart, fd.getDataLen());
+        } else {
+          decValue = getSignedDecimal(src, dataStart, fd.getDataLen());
+        }
+
+        fields.add(decValue);
+        consumed += dataLen;
+        break;
+      case BINARY:
+        // full word length followed by data bytes or length in type
+        // definition when fixed (e.g., DATA v DATA20)
+        if (fd.isFixed()) {
+          dataLen = fd.getDataLen();
+        } else {
+          dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
+          consumed += 4;
+        }
+        dataStart = start+consumed;
+        if (dataLen+dataStart > src.length) {
+          throw new UnparsableContentException("Data ended prematurely");
+        }
+        byte[] bytes = Arrays.copyOfRange(src, dataStart, dataStart+dataLen);
+        fields.add(bytes);
+        consumed += dataLen;
+        break;
+      case BOOLEAN:
+        // fixed length for each boolean value specified by type def
+        long value = getInt(src,start+consumed,fd.getDataLen(),
+                            fd.getSourceType() == HpccSrcType.LITTLE_ENDIAN);
+        fields.add(new Boolean(value != 0));
+        consumed += fd.getDataLen();
+        break;
+      case STRING:
+        // fixed and variable length strings.  utf8 and utf-16 have
+        // length specified in code points.  Fixed length UTF-16 may
+        // have an illegal end as a high surrogate.  If so, terminal
+        // high surrogate is blotted.
+        if (fd.isFixed()) {
+          dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed,
+                                  fd.getDataLen());
+        } else {
+          int cp = ((int)getInt(src, start+consumed, 4, default_little_endian));
+          dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed+4, cp);
+          consumed += 4;
+        }
+        if (start+consumed+dataLen > src.length) {
+          throw new UnparsableContentException("String data ended early");
+        }
+        String s = getString(fd.getSourceType(), src, start+consumed, dataLen);
+        fields.add(s);
+        consumed += dataLen;
+        break;
+      case VAR_STRING:
+        // Var strings are null terminated. In the case of Unicode this a 2-byte null character
+        dataLen = -1;
+        int remainingData = src.length - (start+consumed);
+        HpccSrcType srcType = fd.getSourceType();
+        boolean isUnicode = srcType == HpccSrcType.UTF16BE || srcType == HpccSrcType.UTF16LE;
+
+        // Note: separate for loops because consuming 2 bytes at a
+        // time makes null check easier. Do not have to check for alignment etc
+        if (isUnicode) {
+          for (int i = 0; i < remainingData-1; i+=2) {
+            if (src[i] == '\0' && src[i+1] == '\0') {
+              dataLen = i;
+              break;
+            }
+          }
+        } else {
+          for (int i = 0; i < remainingData; i++) {
+            if (src[i] == '\0') {
+              dataLen = i;
+              break;
+            }
+          }
+        }
+        
+        if (dataLen == -1) {
+          throw new UnparsableContentException("Unable to read varstring. Null character not found");
+        }
+
+        s = getString(fd.getSourceType(), src, start+consumed, dataLen);
+        fields.add(s);
+
+        // Var strings support a fixed length
+        if (fd.isFixed()) {
+          dataLen = getCodeUnits(fd.getSourceType(), src, start+consumed,fd.getDataLen());
+        }
+       
+        // Unicode uses 2-byte nulls
+        consumed += dataLen + 1;
+        if (isUnicode) {
+          consumed++;
+        }
+        break;
+      case RECORD:
+        ArrayList<Object> childFields = new ArrayList<Object>();
+        for (int fieldIndex = 0; fieldIndex < fd.getNumFields(); fieldIndex++) {
+          FieldDef childFd = fd.getDef(fieldIndex);
+          consumed += parseRecord(src, start+consumed, childFields,
+                                        childFd, default_little_endian);
+        }
+        fields.add(new GenericRowWithSchema(childFields.toArray(),fd.asSchema()));
+        break;
+      case SET:
+        // Data layout for SETS & DATASETS are similar. Exception is SETS have a preceding unused byte.
+        // After getting past this byte a SET can be read with the same code used for DATASETS
+        consumed++;
+      case DATASET:
+        if(fd.getNumDefs() != 1) {
+          throw new UnparsableContentException("Set should have a single child type." + fd.getNumDefs() + " child types found.");
+        }
+
+        dataLen = (int)getInt(src, start+consumed, 4, default_little_endian);
+        consumed+=4;
+        if (start+consumed+dataLen>src.length) {
+          throw new UnparsableContentException("Set ended early " + dataLen);
+        }
+        int childCountGuess = 1;
+        if (fd.getDataLen() > 0) {
+          childCountGuess = dataLen / fd.getDataLen();
+        }
+        ArrayList<Object> ws = new ArrayList<Object>(childCountGuess);
+        dataStart = start + consumed;
+        dataStop = dataStart + dataLen;
+        while (start + consumed < dataStop) {
+          consumed += parseRecord(src, start+consumed, ws, 
+            fd.getDef(0), default_little_endian);
+        }
+        fields.add(JavaConverters.asScalaBufferConverter(ws).asScala().seq());
+        break;
+      default:
+        String msg = "Unhandled type: " + fd.getFieldType().toString();
+        throw new UnparsableContentException(msg);
+    }
+    return consumed;
   }
   /**
    * Get an integer from the byte array
@@ -354,6 +326,27 @@ public class BinaryRecordReader implements IRecordReader {
    * @return the integer extracted as a long
    */
   private static long getInt(byte[] b, int pos, int len, boolean little_endian) {
+    long v = getUnsigned(b, pos, len, little_endian);
+
+    // Make the value negative if it should have been by extending sign bit
+    long negMask = (0x80 << (len-1)*8 );
+    if ((v & negMask) != 0) {
+      for (int i = len; i < 8; i++) {
+        v |= (0xffL << (i * 8));
+      }
+    }
+
+    return v;
+  }
+  /**
+   * Get an unsigned int from the byte array
+   * @param b the byte array from the HPCC THOR node
+   * @param pos the position in the array
+   * @param len the length, 1 to 8 bytes
+   * @param little_endian true if the value is little endian
+   * @return the integer extracted as a long
+   */
+  private static long getUnsigned(byte[] b, int pos, int len, boolean little_endian) {
     long v = 0;
     for (int i=0; i<len; i++) {
       v = (v << 8) |
@@ -387,6 +380,118 @@ public class BinaryRecordReader implements IRecordReader {
       u = Double.longBitsToDouble(u8);
     }
     return u;
+  }
+  /**
+   * Get a unsigned decimal from the byte array
+   * @param b the byte array of data from the THOR node
+   * @param pos the position in the array
+   * @param len packed field of numDigits in upper half and precision in lower half
+   * @return BigDecimal
+   */
+  private static BigDecimal getUnsignedDecimal(byte[] b, int pos, int len)
+  {
+    int numDigits = len & 0xffff;
+    int precision = len >> 16;
+    int dataLen = (numDigits+1) / 2;
+
+    BigDecimal ret = new BigDecimal(0);
+
+    int idx = 0;
+    int curDigit = numDigits-1;
+
+    while(idx < dataLen) {
+      long value = 0;
+
+      // We can consume 16 digits / 8 bytes at a time without overflowing.
+      int numToConsume = 8;
+      if ( (idx + numToConsume) > dataLen ) {
+        numToConsume = dataLen - idx;
+      }
+
+      for (int j = 0; j < numToConsume; j++, idx++) {
+        value += powTable[15-(j*2+0)] * ((b[pos+idx] >> 4) & 0x0f);
+        value += powTable[15-(j*2+1)] * (b[pos+idx] & 0x0f);
+      }
+
+      int scale = (curDigit - precision) - 15;
+      ret = ret.add(new BigDecimal(BigInteger.valueOf(value),-scale,MathContext.UNLIMITED));
+      curDigit -= numToConsume*2;
+    }
+
+    return ret;
+  }
+  /**
+   * Get a decimal from the byte array
+   * @param b the byte array of data from the THOR node
+   * @param pos the position in the array
+   * @param len packed field of numDigits in upper half and precision in lower half
+   * @return BigDecimal
+   */
+  private static BigDecimal getSignedDecimal(byte[] b, int pos, int len)
+  {
+    int numDigits = len & MASK_32_LOWER_HALF;
+    int precision = len >> 16;
+    int dataLen = (numDigits+2) / 2;
+
+    final int zeroDigit = 32;
+    int lsb = zeroDigit - precision;
+    int msb = lsb + numDigits;
+
+    byte lastByte = b[pos+dataLen-1];
+    long signMul = 1;
+    if (signMap[lastByte & 0x0f] == -1) {
+      signMul = -1;
+    }
+
+    int idx = 0;
+    int curDigit = numDigits;
+
+    // Read value from last byte. Lower nibble contains sign ignore it
+    long value = (lastByte >> 4) & 0x0f;
+    value *= signMul;
+    BigDecimal ret = new BigDecimal(BigInteger.valueOf(value), precision,MathContext.UNLIMITED);
+
+    // If the # of digits is odd the last byte only contains the sign
+    if (numDigits % 2 == 1) {
+      curDigit--;
+    }
+
+    // If the most significant byte == max int digits then only
+    // the lower nibble is used
+    if (msb == 32) {
+      value = powTable[15] * b[idx] & 0xf;
+      value *= signMul;
+
+      int scale = (curDigit - precision) - 15;
+      ret = ret.add(new BigDecimal(BigInteger.valueOf(value),-scale,MathContext.UNLIMITED));
+
+      idx++;
+      curDigit--;
+    }
+
+    while(idx < dataLen-1) {
+      value = 0;
+
+      // We can consume 16 digits / 8 bytes at a time without overflowing.
+      int numToConsume = 8;
+      if ( (idx + numToConsume) > dataLen-1 ) {
+        numToConsume = (dataLen - 1) - idx;
+      }
+
+      for (int j = 0; j < numToConsume; j++, idx++) {
+        value += powTable[15-(j*2+0)] * ((b[pos+idx] >> 4) & 0x0f);
+        value += powTable[15-(j*2+1)] * (b[pos+idx] & 0x0f);
+      }
+
+      value *= signMul;
+      int scale = (curDigit - precision) - 15;
+      BigDecimal decVal = new BigDecimal(BigInteger.valueOf(value),-scale,MathContext.UNLIMITED);
+      ret = ret.add(decVal);
+
+      curDigit -= numToConsume*2;
+    }
+
+    return ret;
   }
   /**
    * Extract a string from the byte array

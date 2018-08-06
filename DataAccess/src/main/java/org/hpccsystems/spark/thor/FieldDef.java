@@ -21,6 +21,7 @@ import java.util.Iterator;
 
 import org.apache.spark.sql.types.DataType;
 import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.DecimalType;
 import org.apache.spark.sql.types.Metadata;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
@@ -36,29 +37,22 @@ import com.fasterxml.jackson.core.JsonToken;
 
 public class FieldDef implements Serializable {
   static final long serialVersionUID = 1L;
-  private String fieldName;
-  private FieldType fieldType;
-  private String typeName;
-  private FieldDef[] defs;
-  private HpccSrcType srcType;
-  private int fields;
-  private int len;
-  private int childLen;
-  private boolean fixedLength;
+  private String fieldName = "";
+  private FieldType fieldType = FieldType.UNKNOWN;
+  private String typeName = FieldType.UNKNOWN.description();
+  private FieldDef[] defs = new FieldDef[0];
+  private HpccSrcType srcType = HpccSrcType.UNKNOWN;
+  private int fields = 0;
+  private int len = 0;
+  private boolean fixedLength = false;
+  private boolean isUnsigned = false;
+  private StructField schemaElement = null;
+  private StructType schema = null;
   //
   private static final String FieldNameName = "name";
   private static final String FieldTypeName = "type";
   //
   protected FieldDef() {
-    this.fieldName = "";
-    this.fieldType = FieldType.MISSING;
-    this.typeName = FieldType.MISSING.description();
-    this.defs = new FieldDef[0];
-    this.srcType = HpccSrcType.UNKNOWN;
-    this.fields = 0;
-    this.len = 0;
-    this.childLen = 0;
-    this.fixedLength = false;
   }
   /**
    * @param fieldName the name for the field or set or structure
@@ -72,21 +66,20 @@ public class FieldDef implements Serializable {
       this.srcType = typeDef.getSourceType();
       this.fields = this.defs.length;
       this.len = typeDef.getLength();
-      this.childLen = typeDef.childLen();
       this.fixedLength = typeDef.isFixedLength();
+      this.isUnsigned = typeDef.isUnsigned();
   }
   /**
    * @param fieldName the name of the field
    * @param fieldType the FieldType value
    * @param typeName the name of this composite type
    * @param len the field length
-   * @param childLen the child field length or zero
    * @param isFixedLength len may be non-zero and variable
-   * @param def the array of fields composing this def
+   * @param defs the array of fields composing this def
    */
   public FieldDef(String fieldName, FieldType fieldType, String typeName, long len,
-      long childLen, boolean isFixedLength, HpccSrcType styp, FieldDef[] defs) {
-    if (len>Integer.MAX_VALUE || childLen>Integer.MAX_VALUE) {
+      boolean isFixedLength, HpccSrcType styp, FieldDef[] defs) {
+    if (len>Integer.MAX_VALUE) {
       StringBuilder sb = new StringBuilder();
       sb.append("Field length values too large for ");
       sb.append(fieldName);
@@ -99,7 +92,6 @@ public class FieldDef implements Serializable {
     this.srcType = styp;
     this.fields = defs.length;
     this.fixedLength = isFixedLength;
-    this.childLen = (int) childLen;
     this.len = (int) len;
   }
   /**
@@ -127,16 +119,15 @@ public class FieldDef implements Serializable {
    */
   public int getDataLen() { return this.len; }
   /**
-   * Length of the child definition or minimum length if variable
-   * @return length
-   */
-  public int getChildLen() { return this.childLen; }
-  /**
-   * Fixed of variable length
+   * Fixed or variable length
    * @return true when fixed length
    */
   public boolean isFixed() { return this.fixedLength; }
-
+  /**
+   * Is the underlying value type unsigned?
+   * @return true when unsigned
+   */
+  public boolean isUnsigned() { return this.isUnsigned; }
   /**
    * Translates a FieldDef into a StructType schema
    * @return StructType
@@ -146,11 +137,16 @@ public class FieldDef implements Serializable {
       return null;
     }
 
+    if (this.schema != null) {
+      return this.schema;
+    }
+
     StructField[] fields = new StructField[this.getNumDefs()];
     for (int i=0; i<this.getNumDefs(); i++) {
       fields[i] = this.getDef(i).asSchemaElement();
     }
-    return DataTypes.createStructType(fields);
+    this.schema = DataTypes.createStructType(fields);
+    return this.schema;
   }
 
   /**
@@ -158,67 +154,67 @@ public class FieldDef implements Serializable {
    * @return
    */
   public StructField asSchemaElement() {
+    if (this.schemaElement != null) {
+      return this.schemaElement;
+    }
+
     Metadata empty = Metadata.empty();
-    StructField rslt;
-    DataType sql_type;
-    StructField[] struct_fields;
+    boolean nullable = false;
+
+    DataType type = DataTypes.NullType;
     switch (this.fieldType) {
+      case VAR_STRING:
       case STRING:
-        rslt = new StructField(this.fieldName, DataTypes.StringType, false, empty);
+        type = DataTypes.StringType;
         break;
       case INTEGER:
-        rslt = new StructField(this.fieldName, DataTypes.LongType, false, empty);
+        type = DataTypes.LongType;
         break;
       case BINARY:
-        rslt = new StructField(this.fieldName, DataTypes.BinaryType, false, empty);
+        type = DataTypes.BinaryType;
         break;
       case BOOLEAN:
-        rslt = new StructField(this.fieldName, DataTypes.BooleanType, false, empty);
+        type = DataTypes.BooleanType;
         break;
       case REAL:
-        rslt = new StructField(this.fieldName, DataTypes.DoubleType, false, empty);
+        type = DataTypes.DoubleType;
         break;
-      case SET_OF_STRING:
-        sql_type = DataTypes.createArrayType(DataTypes.StringType);
-        rslt = new StructField(this.fieldName, sql_type, true, empty);
+      case DECIMAL:
+        int precision = getDataLen() & 0xffff;
+        int scale = getDataLen() >> 16;
+
+        // Spark SQL only supports 38 digits in decimal values
+        if (precision > DecimalType.MAX_PRECISION()) {
+          scale -= (precision - DecimalType.MAX_PRECISION());
+          if (scale < 0) {
+            scale = 0;
+          }
+          
+          precision = DecimalType.MAX_PRECISION();
+        }
+
+        type = DataTypes.createDecimalType(precision,scale);
         break;
-      case SET_OF_INTEGER:
-        sql_type = DataTypes.createArrayType(DataTypes.LongType);
-        rslt = new StructField(this.fieldName, sql_type, true, empty);
-        break;
-      case SET_OF_BINARY:
-        sql_type = DataTypes.createArrayType(DataTypes.BinaryType);
-        rslt = new StructField(this.fieldName, sql_type, true, empty);
-        break;
-      case SET_OF_BOOLEAN:
-        sql_type = DataTypes.createArrayType(DataTypes.BooleanType);
-        rslt = new StructField(this.fieldName, sql_type, true, empty);
-        break;
-      case SET_OF_REAL:
-        sql_type = DataTypes.createArrayType(DataTypes.DoubleType);
-        rslt = new StructField(this.fieldName, sql_type, true, empty);
+      case SET:
+      case DATASET:
+        StructField childField = this.defs[0].asSchemaElement();
+        type = DataTypes.createArrayType(childField.dataType());
+        nullable = true;
         break;
       case RECORD:
-        struct_fields = new StructField[this.defs.length];
+        StructField[] childFields = new StructField[this.defs.length];
         for (int i=0; i<this.defs.length; i++) {
-          struct_fields[i] = this.defs[i].asSchemaElement();
+          childFields[i] = this.defs[i].asSchemaElement();
         }
-        sql_type = DataTypes.createStructType(struct_fields);
-        rslt = new StructField(this.fieldName, sql_type, false, empty);
+        type = DataTypes.createStructType(childFields);
         break;
-      case SEQ_OF_RECORD:
-        struct_fields = new StructField[this.defs.length];
-        for (int i=0; i<this.defs.length; i++) {
-          struct_fields[i] = this.defs[i].asSchemaElement();
-        }
-        DataType struct_type = DataTypes.createStructType(struct_fields);
-        sql_type = DataTypes.createArrayType(struct_type);
-        rslt = new StructField(this.fieldName, sql_type, true, empty);
+      case UNKNOWN:
+        type = DataTypes.NullType;
         break;
-      default:
-        rslt = new StructField(this.fieldName, DataTypes.NullType, true, empty);
     }
-    return rslt;
+
+    this.schemaElement = new StructField(this.fieldName, type, nullable, empty);
+    return this.schemaElement; 
   }
   /**
    * A descriptive string showing the name and type.  When the
@@ -232,10 +228,6 @@ public class FieldDef implements Serializable {
     sb.append(", ");
     sb.append((this.fixedLength) ? "F len="  : "V len=");
     sb.append(len);
-    if (childLen > 0) {
-      sb.append(":");
-      sb.append(this.childLen);
-    }
     sb.append(" ");
     sb.append(this.srcType.toString());
     sb.append(", fieldType=");

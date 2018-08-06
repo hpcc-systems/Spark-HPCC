@@ -93,7 +93,7 @@ public class DefEntryField extends DefEntry implements Serializable {
       throws UnusableDataDefinitionException {
     this.used++;
     if (!typDict.containsKey(this.typeName)) {
-      throw new UnusableDataDefinitionException("Missing type "+this.typeName);
+      throw new UnusableDataDefinitionException("Unknown type "+this.typeName);
     }
     DefEntryType typ = typDict.get(this.typeName);
     typ.countUse(tc, typDict);
@@ -107,7 +107,7 @@ public class DefEntryField extends DefEntry implements Serializable {
       throws UnusableDataDefinitionException {
     this.used++;
     if (!typDict.containsKey(this.typeName)) {
-      throw new UnusableDataDefinitionException("Missing type "+this.typeName);
+      throw new UnusableDataDefinitionException("Unknown type "+this.typeName);
     }
     DefEntryType typ = typDict.get(this.typeName);
     typ.countUse(typDict);
