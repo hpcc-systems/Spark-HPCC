@@ -45,9 +45,6 @@ public class TypeDef implements Serializable {
   private boolean unsignedFlag;
   private boolean fixedLength;
   private boolean payload;
-  private int childLen;
-  private FieldType childType;
-  private HpccSrcType childSrc;
   // flag values from eclhelper.hpp RtlFieldTypeMask enum definition
   final private static int flag_unsigned = 256;
   final private static int flag_ebcdic = 256;         // only if string type
@@ -55,6 +52,7 @@ public class TypeDef implements Serializable {
   final private static int flag_biased = 8192;
   final private static int flag_payload = 65536;
   final private static int flag_ebcdic_pd = 131072;
+  final private static int mask_field_type = 0x7fff;
   // type codes from rtlconst.hpp type_vals enum definition
   final private static int type_boolean = 0;
   final private static int type_int = 1;
@@ -107,13 +105,17 @@ public class TypeDef implements Serializable {
   final private static int type_max = 46;
   // Combinations
   final private static int type_uint = flag_unsigned + type_int;
+  final private static int type_udecimal = flag_unsigned + type_decimal;
   final private static int type_ufilepos = flag_unsigned + type_filepos;
   final private static int type_vrecord = flag_unknownsize + type_record;
   final private static int type_vtable = flag_unknownsize + type_table;
   final private static int type_vstring = flag_unknownsize + type_string;
+  final private static int type_vvarstring = flag_unknownsize + type_varstring;
   final private static int type_vset = flag_unknownsize + type_set;
   final private static int type_vunicode = flag_unknownsize + type_unicode;
+  final private static int type_vvarunicode = flag_unknownsize + type_varunicode;
   final private static int type_vutf8 = flag_unknownsize + type_utf8;
+  final private static int type_vdata = flag_unknownsize + type_data;
   // JSON pair names of interest
   final private static String fieldTypeName = "fieldType";
   final private static String lengthName = "length";
@@ -124,23 +126,18 @@ public class TypeDef implements Serializable {
    * @param type the value of the JSON pair named fieldType
    * @param typeName the name of the object for type objects
    * @param len the value of the JSON pair named length
-   * @param childType the type of the child or MISSING if no child JSON pair
+   * @param childType the type of the child or UNKNWON if no child JSON pair
    * @param child length or 0 if no child JSON pair
    * @param child source enum type value
    * @param defs the field definitions specified by fields JSON pair
    */
-  public TypeDef(long type_id, String typeName, int len,
-      FieldType childType, int childLen, HpccSrcType childSrc,
-      FieldDef[] defs) {
+  public TypeDef(long type_id, String typeName, int len, FieldDef[] defs) {
     this.payload = (type_id & flag_payload) != 0;
-    int type = (int) (type_id & 0x7fff);
+    int type = (int) (type_id & mask_field_type);
     this.typeName = typeName;
     this.len = len;
     this.struct = defs;
-    this.unsignedFlag = (type_id & 0x0100) != 0;
-    this.childLen = childLen;
-    this.childSrc = childSrc;
-    this.childType = childType;
+    this.unsignedFlag = (type_id & flag_unsigned) != 0;
     // Pick up FieldType and length
     switch (type) {
       case type_boolean:
@@ -158,14 +155,37 @@ public class TypeDef implements Serializable {
         this.fixedLength = true;
         this.type = FieldType.REAL;
         break;
+      case type_udecimal:
+      case type_decimal:
+        // Setting fixed length false because the length needs to
+        // be extracted
+        this.fixedLength = false;
+        this.type = FieldType.DECIMAL;
+        break;
+      case type_vdata:
+        this.fixedLength = false;
+        this.type = FieldType.BINARY;
+        break;
+      case type_data:
+        this.fixedLength = true;
+        this.type = FieldType.BINARY;
+        break;
       case type_string:
       case type_char:
       case type_unicode:
         this.fixedLength = true;
         this.type = FieldType.STRING;
         break;
+      case type_vvarstring:
+      case type_vvarunicode:
+        this.fixedLength = false;
+        this.type = FieldType.VAR_STRING;
+        break;
       case type_varstring:
       case type_varunicode:
+        this.fixedLength = true;
+        this.type = FieldType.VAR_STRING;
+        break;
       case type_vstring:
       case type_vunicode:
       case type_vutf8:
@@ -175,41 +195,11 @@ public class TypeDef implements Serializable {
         break;
       case type_set:
         this.fixedLength = true;
-        switch (childType) {
-          case INTEGER:
-            this.type = FieldType.SET_OF_INTEGER;
-            break;
-          case REAL:
-            this.type = FieldType.SET_OF_REAL;
-            break;
-          case BOOLEAN:
-            this.type = FieldType.SET_OF_BOOLEAN;
-            break;
-          case STRING:
-            this.type = FieldType.SET_OF_STRING;
-            break;
-          default:
-            this.type = FieldType.SET_OF_MISSING;
-        }
+        this.type = FieldType.SET;
         break;
       case type_vset:
         this.fixedLength = false;
-        switch (childType) {
-          case INTEGER:
-            this.type = FieldType.SET_OF_INTEGER;
-            break;
-          case REAL:
-            this.type = FieldType.SET_OF_REAL;
-            break;
-          case BOOLEAN:
-            this.type = FieldType.SET_OF_BOOLEAN;
-            break;
-          case STRING:
-            this.type = FieldType.SET_OF_STRING;
-            break;
-          default:
-            this.type = FieldType.SET_OF_MISSING;
-        }
+        this.type = FieldType.SET;
         break;
       case type_record:
         this.fixedLength = true;
@@ -220,12 +210,17 @@ public class TypeDef implements Serializable {
         this.type = FieldType.RECORD;
         break;
       case type_table:
+        this.fixedLength = true;
+        this.type = FieldType.DATASET;
+        break;
       case type_vtable:
-        this.type = FieldType.SEQ_OF_RECORD;
+        this.fixedLength = false;
+        this.type = FieldType.DATASET;
         break;
       default:
         this.fixedLength = false;
-        this.type = FieldType.MISSING;
+        this.type = FieldType.UNKNOWN;
+        break;
     }
     // Pick up source type
     switch (type) {
@@ -244,31 +239,26 @@ public class TypeDef implements Serializable {
         break;
       case type_string:
       case type_varstring:
+      case type_vvarstring:
       case type_vstring:
         this.src = HpccSrcType.SINGLE_BYTE_CHAR;
         break;
       case type_unicode:
+      case type_varunicode:
+      case type_vvarunicode:
       case type_vunicode:
         this.src = HpccSrcType.UTF16LE;
-        break;
-      case type_set:
-      case type_vset:
-        this.src = this.childSrc;
         break;
       default:
         this.src = HpccSrcType.UNKNOWN;
     }
-  }
-  /**
-   * Use for type definition that has a child defined
-   * @param type the value of the JSON pair named fieldType
-   * @param typeName the name of the object for type objects
-   * @param len the value of the JSON pair named length
-   * @param fields the list of field definitions if this is a structure
-   */
-  public TypeDef(long type_id, String typeName, int len, FieldDef[] fields) {
-    this(type_id, typeName, len, FieldType.MISSING, 0,
-        HpccSrcType.UNKNOWN, fields);
+
+    // Combine child fields for datasets into a record
+    if ((type == type_vtable || type == type_table)
+    && (defs.length != 1 || defs[0].getFieldType() != FieldType.RECORD)) {
+      this.struct = new FieldDef[1];
+      this.struct[0] = new FieldDef("record", FieldType.RECORD, "none",len, true, HpccSrcType.UNKNOWN,defs);
+    }
   }
   /**
    * The type of this field definition.
@@ -298,9 +288,7 @@ public class TypeDef implements Serializable {
    * @return the filed list or empty array
    */
   public FieldDef[] getStructDef() {
-    FieldDef[] rslt = new FieldDef[struct.length];
-    for (int i=0; i<struct.length; i++) rslt[i] = struct[i];
-    return rslt;
+    return struct.clone();
   }
   /**
    * Is the numeric value an unsigned value?
@@ -317,14 +305,6 @@ public class TypeDef implements Serializable {
    */
   public boolean isFixedLength() { return fixedLength; }
   /**
-   * The type defined by the child pair if present or MISSING
-   */
-  public FieldType childType() { return childType; }
-  /**
-   * The fixed length of the child type or zero
-   */
-  public int childLen() { return childLen; }
-  /**
    * The binary encoding type of the data source.
    * @return source type
    */
@@ -334,7 +314,7 @@ public class TypeDef implements Serializable {
    * @return true if this type is unsupported
    */
   public boolean isUnsupported() {
-    return this.src==HpccSrcType.UNKNOWN || this.type==FieldType.MISSING;
+    return this.src==HpccSrcType.UNKNOWN || this.type==FieldType.UNKNOWN;
   }
   /**
    * Pick up a type definition from parsing a JSON string.  The type
@@ -361,9 +341,6 @@ public class TypeDef implements Serializable {
     String typeName = first.getName();
     long fieldType = 0;
     int length = 0;
-    FieldType childType = FieldType.MISSING;
-    int childLen = 0;
-    HpccSrcType childSrc = HpccSrcType.UNKNOWN;
     FieldDef[] fields = new FieldDef[0];
     DefToken curr = toks_iter.next();
     while (toks_iter.hasNext() && curr.getToken() != JsonToken.END_OBJECT) {
@@ -383,10 +360,9 @@ public class TypeDef implements Serializable {
           throw new UnusableDataDefinitionException(sb.toString());
         }
         TypeDef child = type_dict.get(name);
-        childType = child.getType();
-        childLen = child.getLength();
-        childSrc = child.getSourceType();
-        fields = child.getStructDef();
+        fields = new FieldDef[1];
+        fields[0] = new FieldDef(name,child);
+
       } else if (fieldsName.equals(curr.getName())) {
         if (curr.getToken() != JsonToken.START_ARRAY) {
           StringBuilder sb = new StringBuilder();
@@ -415,8 +391,7 @@ public class TypeDef implements Serializable {
     if (!toks_iter.hasNext()) {
       new UnusableDataDefinitionException("Early object termination");
     }
-    TypeDef rslt = new TypeDef(fieldType, typeName, length, childType,
-        childLen, childSrc, fields);
+    TypeDef rslt = new TypeDef(fieldType, typeName, length, fields);
     return rslt;
   }
   /**
@@ -433,11 +408,6 @@ public class TypeDef implements Serializable {
     boolean revised = false;
     int typAlone = ((int)typ) & 0xff;
     switch (typAlone) {
-    case type_decimal:
-      revisedType = type_real;
-      revisedLength = 8;
-      revised = true;
-      break;
     case type_biasedswapint:
       revisedType = type_int + unsigned_flag;
       revised = true;
@@ -457,6 +427,9 @@ public class TypeDef implements Serializable {
       break;
     case type_qstring:
       revisedType = type_string;
+      if (unknown_size != 0) {
+        revisedType = type_vstring; 
+      }
       revised = true;
       break;
     default:
@@ -492,7 +465,6 @@ public class TypeDef implements Serializable {
       case type_bitfield:
       case type_enumerated:
       case type_blob:
-      case type_data:
       case type_pointer:
       case type_class:
       case type_array:

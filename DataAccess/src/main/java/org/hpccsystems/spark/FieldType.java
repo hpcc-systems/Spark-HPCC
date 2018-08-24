@@ -27,18 +27,15 @@ import java.io.Serializable;
 public enum FieldType implements Serializable {
   INTEGER(true, "Integer", false),
   REAL(true, "Real", false),
+  DECIMAL(true,"Decimal",false),
+  VAR_STRING(true,"VarString",false),
   STRING(true, "String", false),
   BOOLEAN(true, "Boolean", false),
   BINARY(true, "Binary data", false),
   RECORD(false, "Record", true),
-  MISSING(true, "Missing value", false),
-  SET_OF_INTEGER(false, "Set of integers", false),
-  SET_OF_REAL(false, "Set of reals", false),
-  SET_OF_STRING(false, "Set of strings", false),
-  SET_OF_BOOLEAN(false, "Set of Booleans", false),
-  SET_OF_BINARY(false, "Set of Binary strings", false),
-  SEQ_OF_RECORD(false, "Seq of records", true),
-  SET_OF_MISSING(false, "Set of unknown", false);
+  SET(false, "Set", false),             // Set & Dataset are separate because set has a preceding unused byte 
+  DATASET(false, "Set", false),
+  UNKNOWN(true, "Unknown", false);
 
   static final long serialVersionUID = 1L;
   private boolean scalar;
@@ -51,7 +48,7 @@ public enum FieldType implements Serializable {
    * composites.  The primitive types are Boolean, Integer, String,
    * and Real.
    *
-   * The MISSING and SET_OF_MISSING occur when the type information
+   * The UNKNOWN type is used when the type information
    * handled in the TypeDef class is not understood.  Possible
    * underlying types that are not understood include the Foreign
    * data types, QSTRING, bit fields, ECL ENUM.

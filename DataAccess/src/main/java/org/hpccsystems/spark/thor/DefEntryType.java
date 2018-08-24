@@ -123,7 +123,7 @@ public class DefEntryType extends DefEntry implements Serializable {
     this.used++;
     if (this.childType!="") {
       if (!typDict.containsKey(this.childType)) {
-        throw new UnusableDataDefinitionException("Missing type " + this.childType);
+        throw new UnusableDataDefinitionException("Unknown type " + this.childType);
       }
       DefEntryType chld = typDict.get(this.childType);
       chld.countUse(tc, typDict);
@@ -147,7 +147,7 @@ public class DefEntryType extends DefEntry implements Serializable {
     this.used++;
     if (this.childType!="") {
       if (!typDict.containsKey(this.childType)) {
-        throw new UnusableDataDefinitionException("Missing type " + this.childType);
+        throw new UnusableDataDefinitionException("Unknown type " + this.childType);
       }
       DefEntryType chld = typDict.get(this.childType);
       chld.countUse(typDict);

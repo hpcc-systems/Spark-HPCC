@@ -111,7 +111,6 @@ public class RecordDef implements Serializable {
     }
     long len = 0;
     long type_id = 0;
-    long childLen = 0;
     DefToken curr = toks_iter.next();
     if (curr.getToken() != JsonToken.START_OBJECT
         || curr.getName() != null) {
@@ -166,11 +165,6 @@ public class RecordDef implements Serializable {
         }
       } else if (fieldLengthName.equals(curr.getName())) {
         len = curr.getInteger();
-      } else if (childName.equals(curr.getName())) {
-        String childTypeName = curr.getString();
-        if (types.containsKey(childTypeName)) {
-          childLen = types.get(childTypeName).childLen();
-        }
       }
       curr = toks_iter.next();
     }
@@ -185,7 +179,7 @@ public class RecordDef implements Serializable {
     }
     // create record def
     FieldDef root = new FieldDef("root", FieldType.RECORD, "none",
-        len, childLen, type_id==type_record, HpccSrcType.UNKNOWN,
+        len, type_id==type_record, HpccSrcType.UNKNOWN,
         record_fields.toArray(new FieldDef[0]));
     RecordDef rslt = new RecordDef(defThor, defContent, root);
     return rslt;
@@ -214,10 +208,6 @@ public class RecordDef implements Serializable {
     return "RECORD: " + root.toString();
   }
   public StructType asSchema() {
-    StructField[] fields = new StructField[this.root.getNumDefs()];
-    for (int i=0; i<this.root.getNumDefs(); i++) {
-      fields[i] = this.root.getDef(i).asSchemaElement();
-    }
-    return DataTypes.createStructType(fields);
+    return this.root.asSchema();
   }
 }
