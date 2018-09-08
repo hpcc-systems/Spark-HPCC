@@ -112,11 +112,9 @@ public class HpccPart implements Partition, Serializable {
    * set to FileFilter.nullFilter() for all records.
    * @return an array of partitions for Spark
    */
-  public static HpccPart[] makeFileParts(DFUFileDetailInfo[] fdis,
-      RemapInfo remap_info, int max_parts, FileFilter filter)
-          throws HpccFileException {
-    DataPartition[][] dataParts
-              = DataPartition.createPartitions(fdis, remap_info, max_parts, filter);
+  public static HpccPart[] makeFileParts(DFUFileDetailInfo[] fdis, RemapInfo remap_info, int max_parts, FileFilter filter, String fileAccessBlob) throws HpccFileException
+  {
+    DataPartition[][] dataParts = DataPartition.createPartitions(fdis, remap_info, max_parts, filter, fileAccessBlob);
     HpccPart[] rslt = new HpccPart[dataParts.length];
     for (int i=0; i<rslt.length; i++ ) {
       rslt[i] = new HpccPart(dataParts.length, i+1, dataParts[i]);

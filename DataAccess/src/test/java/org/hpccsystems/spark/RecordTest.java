@@ -45,22 +45,24 @@ public class RecordTest {
     System.out.print("Base IP or empty: ");
     System.out.flush();
     String base_ip = br.readLine();
-    HpccFile hpcc;
-    if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList,
-                          new FileFilter(filterExpression), 0);
-    } else {
+
+    HpccFile hpccFile;
+    if (nodes.equals("") || base_ip.equals(""))
+    {
+      hpccFile = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList,new FileFilter(filterExpression), 0);
+    }
+    else
+    {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-          fieldList, new FileFilter(filterExpression), ri, 0);
+      hpccFile = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, new FileFilter(filterExpression), ri, 0);
     }
     System.out.println("Getting file parts");
-    HpccPart[] parts = hpcc.getFileParts();
+    HpccPart[] parts = hpccFile.getFileParts();
     for (int i=0; i<parts.length; i++) {
       System.out.println(parts[i].toString());
     }
     System.out.println("Getting record definition");
-    RecordDef rd = hpcc.getRecordDefinition();
+    RecordDef rd = hpccFile.getRecordDefinition();
     FieldDef root_def = rd.getRootDef();
     Iterator<FieldDef> iter = root_def.getDefinitions();
     while (iter.hasNext()) {
@@ -71,8 +73,8 @@ public class RecordTest {
       System.out.println("Reading records from part index " + i);
       for (int j=0; j<parts[i].numDataPartitions(); j++) {
         try {
-          DataPartition dp = parts[i].getDataPartitionAt(j);
-          BinaryRecordReader brr = new BinaryRecordReader(dp, rd);
+          DataPartition dataPartition = parts[i].getDataPartitionAt(j);
+          BinaryRecordReader brr = new BinaryRecordReader(dataPartition, rd);
           while (brr.hasNext()) {
             Row rec = brr.getNext();
             System.out.println(rec.toString());

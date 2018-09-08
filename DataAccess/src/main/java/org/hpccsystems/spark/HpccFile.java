@@ -17,6 +17,7 @@ package org.hpccsystems.spark;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.UUID;
 
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
@@ -27,6 +28,10 @@ import org.hpccsystems.spark.thor.FileFilter;
 import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 import org.hpccsystems.ws.client.HPCCWsDFUClient;
+import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUFileAccessResponse;
+import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartCopies;
+import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartLocations;
+import org.hpccsystems.ws.client.gen.wsdfu.v1_39.SecAccessType;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
 import org.hpccsystems.ws.client.utils.Connection;
 
@@ -43,6 +48,7 @@ public class HpccFile implements Serializable {
   private HpccPart[] parts;
   private RecordDef recordDefinition;
   private boolean isIndex;
+  static private final int DEFAULT_ACCESS_EXPIRY_SECONDS = 120;
 
   // Make sure Python picklers have been registered
   static {
@@ -199,19 +205,29 @@ public class HpccFile implements Serializable {
     Connection conn = new Connection(protocol, host, port);
     conn.setUserName(user);
     conn.setPassword(pword);
-    HPCCWsDFUClient hpcc = HPCCWsDFUClient.get(conn);
+    HPCCWsDFUClient dfuClient = HPCCWsDFUClient.get(conn);
     String record_def_json = "";
     try {
       ArrayList<DFUFileDetailInfo> fd_list = new ArrayList<DFUFileDetailInfo>();
-      HpccFile.recurseFDI(fd_list, fileName, hpcc);
-      DFUFileDetailInfo[] fd_array = fd_list.toArray(new DFUFileDetailInfo[0]);
-      this.isIndex = fd_array[0].isIndex();
-      this.parts = HpccPart.makeFileParts(fd_array, remap_info, maxParts, filter);
-      record_def_json = fd_array[0].getJsonInfo();
-      if (record_def_json==null) {
-        throw new UnusableDataDefinitionException("Definiiton returned was null");
+      HpccFile.recurseFDI(fd_list, fileName, dfuClient);
+      if (fd_list.size() > 0)
+      {
+          DFUFileDetailInfo[] fd_array = fd_list.toArray(new DFUFileDetailInfo[0]);
+          String clustername = fd_array[0].getNodeGroup();
+          String fileAccessBlob = acquireReadFileAccess(fileName, dfuClient, DEFAULT_ACCESS_EXPIRY_SECONDS, clustername);
+
+          this.isIndex = fd_array[0].isIndex();
+          this.parts = HpccPart.makeFileParts(fd_array, remap_info, maxParts, filter, fileAccessBlob);
+          record_def_json = fd_array[0].getJsonInfo();
+          if (record_def_json==null)
+          {
+              throw new UnusableDataDefinitionException("Definiton returned was null");
+          }
+          this.recordDefinition = RecordDef.fromJsonDef(record_def_json, cp);
       }
-      this.recordDefinition = RecordDef.fromJsonDef(record_def_json, cp);
+      else
+          throw new HpccFileException("Could not fetch metadata for file: '" + fileName + "'");
+
     } catch (UnusableDataDefinitionException e) {
       System.err.println(record_def_json);
       throw new HpccFileException("Bad definition", e);
@@ -296,5 +312,21 @@ public class HpccFile implements Serializable {
         recurseFDI(fd_list, subFileNames[i], hpcc);
       }
     } else fd_list.add(fd);
+  }
+
+  private static String acquireReadFileAccess(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception
+  {
+    return acquireFileAccess(fileName, SecAccessType.Read, hpccClient, expirySeconds, clusterName);
+  }
+
+  private static String acquireWriteFileAccess(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception
+  {
+    return acquireFileAccess(fileName, SecAccessType.Write, hpccClient, expirySeconds, clusterName);
+  }
+
+  private static String acquireFileAccess(String fileName, SecAccessType accesstype, HPCCWsDFUClient hpcc, int expirySeconds, String clusterName) throws Exception
+  {
+    String uniqueID = "SPARK-HPCC: " + UUID.randomUUID().toString();
+    return hpcc.getFileAccessBlob(accesstype, fileName, clusterName, expirySeconds, uniqueID);
   }
 }

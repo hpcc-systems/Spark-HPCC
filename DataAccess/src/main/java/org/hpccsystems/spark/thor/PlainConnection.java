@@ -33,7 +33,7 @@ public class PlainConnection {
   private byte[] cursorBin;
   private int handle;
   private DataPartition dataPart;
-  private RecordDef recDef;
+  private RecordDef recordDefinition;
   private java.io.DataInputStream dis;
   private java.io.DataOutputStream dos;
   private java.net.Socket sock;
@@ -50,7 +50,7 @@ public class PlainConnection {
    * @param rd the JSON definition for the read input and output
    */
   public PlainConnection(DataPartition dp, RecordDef rd) {
-    this.recDef = rd;
+    this.recordDefinition = rd;
     this.dataPart = dp;
     this.active = false;
     this.closed = false;
@@ -237,8 +237,8 @@ public class PlainConnection {
   private String makeInitialRequest() {
     StringBuilder sb = new StringBuilder(100
         + this.dataPart.getFilename().length()
-        + this.recDef.getJsonInputDef().length()
-        + this.recDef.getJsonOutputDef().length());
+        + this.recordDefinition.getJsonInputDef().length()
+        + this.recordDefinition.getJsonOutputDef().length());
     sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\", \n");
     sb.append("\"replyLimit\" : " + PlainConnection.MaxReadSizeKB + ",\n");
@@ -253,13 +253,15 @@ public class PlainConnection {
   private String makeNodeObject() {
     StringBuilder sb = new StringBuilder(50
         + this.dataPart.getFilename().length()
-        + this.recDef.getJsonInputDef().length()
-        + this.recDef.getJsonOutputDef().length());
+        + this.recordDefinition.getJsonInputDef().length()
+        + this.recordDefinition.getJsonOutputDef().length());
     sb.append(" \"node\" : ");
     sb.append("{\n \"kind\" : \"");
     sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
-    sb.append("\",\n \"fileName\" : \"");
-    sb.append(this.dataPart.getFilename());
+    sb.append("\",\n \"metaInfo\" : \"");
+    sb.append(this.dataPart.getFileAccessBlob());
+    sb.append("\",\n \"filePart\" : \"");
+    sb.append(this.dataPart.getThisPart());
     sb.append("\", \n");
     if (!this.dataPart.getFilter().isEmpty()) {
       sb.append(" ");
@@ -269,9 +271,9 @@ public class PlainConnection {
     sb.append(" \"compressed\": \"");
     sb.append((this.dataPart.isCompressed()) ?"true"  :"false");
     sb.append("\", \n \"input\" : ");
-    sb.append(this.recDef.getJsonInputDef());
+    sb.append(this.recordDefinition.getJsonInputDef());
     sb.append(", \n \"output\" : ");
-    sb.append(this.recDef.getJsonOutputDef());
+    sb.append(this.recordDefinition.getJsonOutputDef());
     sb.append("\n }");
     return sb.toString();
   }
@@ -292,8 +294,8 @@ public class PlainConnection {
   private String makeCursorRequest() {
     StringBuilder sb = new StringBuilder(130
         + this.dataPart.getFilename().length()
-        + this.recDef.getJsonInputDef().length()
-        + this.recDef.getJsonOutputDef().length()
+        + this.recordDefinition.getJsonInputDef().length()
+        + this.recordDefinition.getJsonOutputDef().length()
         + (int)(this.cursorBin.length*1.4));
     sb.append(RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\",\n");
@@ -337,18 +339,25 @@ public class PlainConnection {
       if (len == 0) return 0;
 
       int status = dis.readInt();
+      len -=4; // account for the status int 4-byte
       if (status != RFCStreamNoError)
       {
             StringBuilder sb = new StringBuilder();
-            sb.append("Invalid response of: (");
-            sb.append(String.format("0x%08X", status));
-            sb.append(") received from THOR node ");
+            sb.append("\nReceived ERROR from Thor node (");
             sb.append(this.getIP());
-            sb.append(" and return length hi-bit was ");
-            sb.append(hi_flag);
+            sb.append("): Code: '");
+            sb.append(String.format("0x%08X", status));
+            sb.append("'");
+            if (len > 0)
+            {
+                byte[] message = new byte[len];
+                dis.readFully(message, 0, len);
+                sb.append(" Message: '");
+                sb.append(new String(message));
+                sb.append("'");
+            }
             throw new HpccFileException(sb.toString());
       }
-      len -=4; // account for the status int 4-byte
     } catch (IOException e) {
       throw new HpccFileException("Error during read block", e);
     }
