@@ -49,6 +49,7 @@ public class HpccFile implements Serializable {
   private RecordDef recordDefinition;
   private boolean isIndex;
   static private final int DEFAULT_ACCESS_EXPIRY_SECONDS = 120;
+  private int fileAccessExpirySecs = DEFAULT_ACCESS_EXPIRY_SECONDS;
 
   // Make sure Python picklers have been registered
   static {
@@ -178,6 +179,7 @@ public class HpccFile implements Serializable {
     this(fileName, protocol, host, port, user, pword, targetColumnList,
          FileFilter.nullFilter(), remap_info, maxParts);
   }
+
   /**
    * Constructor for the HpccFile.  Captures the information
    * from the DALI Server for the
@@ -199,7 +201,8 @@ public class HpccFile implements Serializable {
    */
   public HpccFile(String fileName, String protocol, String host, String port,
       String user, String pword, String targetColumnList, FileFilter filter,
-      RemapInfo remap_info, int maxParts) throws HpccFileException {
+      RemapInfo remap_info, int maxParts) throws HpccFileException
+  {
     this.recordDefinition = new RecordDef();  // missing, the default
     ColumnPruner cp = new ColumnPruner(targetColumnList);
     Connection conn = new Connection(protocol, host, port);
@@ -214,7 +217,7 @@ public class HpccFile implements Serializable {
       {
           DFUFileDetailInfo[] fd_array = fd_list.toArray(new DFUFileDetailInfo[0]);
           String clustername = fd_array[0].getNodeGroup();
-          String fileAccessBlob = acquireReadFileAccess(fileName, dfuClient, DEFAULT_ACCESS_EXPIRY_SECONDS, clustername);
+          String fileAccessBlob = acquireReadFileAccess(fileName, dfuClient, fileAccessExpirySecs, clustername);
 
           this.isIndex = fd_array[0].isIndex();
           this.parts = HpccPart.makeFileParts(fd_array, remap_info, maxParts, filter, fileAccessBlob);
@@ -237,6 +240,36 @@ public class HpccFile implements Serializable {
       sb.append(fileName);
       throw new HpccFileException(sb.toString(), e);
     }
+  }
+
+  /**
+   * Constructor for HpccFile.
+   * Captures the information from the DALI Server for the
+   * clusters behind the ESP named by the IP address and re-maps
+   * the address information for the THOR nodes to visible addresses
+   * when the THOR clusters are virtual.
+   *
+   * @param fileName The HPCC file name
+   * @param protocol usually http or https
+   * @param host the ESP address
+   * @param port the ESP port
+   * @param user a valid account that has access to the file
+   * @param pword a valid pass word for the account
+   * @param targetColumnList a comma separated list of column names in dotted
+   *        notation for columns within compound columns.
+   * @param filter a file filter to select records of interest
+   * @param remap_info address and port re-mapping info for THOR cluster
+   * @param maxParts the maximum number of partitions or zero for no max
+   * @param fileAccessExpirySecs initial access to a file is granted for a period
+   *        of time. This param can change the duration of that file access.
+   * @throws HpccFileException
+   */
+  public HpccFile(String fileName, String protocol, String host, String port,
+      String user, String pword, String targetColumnList, FileFilter filter,
+      RemapInfo remap_info, int maxParts, int fileAccessExpirySecs) throws HpccFileException
+  {
+	this(fileName, protocol, host, port, user, pword, targetColumnList, filter, remap_info, maxParts);
+	this.fileAccessExpirySecs = fileAccessExpirySecs;
   }
   /**
    * The partitions for the file residing on an HPCC cluster
