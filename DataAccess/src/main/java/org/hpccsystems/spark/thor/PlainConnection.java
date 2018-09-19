@@ -39,8 +39,6 @@ public class PlainConnection {
   private java.net.Socket sock;
   //
   public static final Charset HPCCCharSet = Charset.forName("ISO-8859-1");
-  public static final char RFCStreamReadCmd = '\u002B'; //43 in decimal, value associated w/ stream read in dafilesrv
-  public static final int RFCStreamNoError = '\u0000';
 
   // Note: The platform may respond with more data than this if records are larger than this limit.
   public static final int MaxReadSizeKB = 4096;
@@ -239,7 +237,7 @@ public class PlainConnection {
         + this.dataPart.getFilename().length()
         + this.recordDefinition.getJsonInputDef().length()
         + this.recordDefinition.getJsonOutputDef().length());
-    sb.append(RFCStreamReadCmd);
+    sb.append(RFCCodes.RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\", \n");
     sb.append("\"replyLimit\" : " + PlainConnection.MaxReadSizeKB + ",\n");
     sb.append(makeNodeObject());
@@ -283,7 +281,7 @@ public class PlainConnection {
    */
   private String makeHandleRequest() {
     StringBuilder sb = new StringBuilder(100);
-    sb.append(RFCStreamReadCmd);
+    sb.append(RFCCodes.RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\",\n");
     sb.append("  \"handle\" : \"");
     sb.append(Integer.toString(this.handle));
@@ -297,7 +295,7 @@ public class PlainConnection {
         + this.recordDefinition.getJsonInputDef().length()
         + this.recordDefinition.getJsonOutputDef().length()
         + (int)(this.cursorBin.length*1.4));
-    sb.append(RFCStreamReadCmd);
+    sb.append(RFCCodes.RFCStreamReadCmd);
     sb.append("{ \"format\" : \"binary\",\n");
     sb.append("\"replyLimit\" : " + PlainConnection.MaxReadSizeKB + ",\n");
     sb.append(makeNodeObject());
@@ -336,18 +334,21 @@ public class PlainConnection {
         hi_flag = true;
         len &= 0x7FFFFFFF;
       }
-      if (len == 0) return 0;
+
+      if (len == 0)
+          return 0;
 
       int status = dis.readInt();
       len -=4; // account for the status int 4-byte
-      if (status != RFCStreamNoError)
+      if (status != RFCCodes.RFCStreamNoError)
       {
             StringBuilder sb = new StringBuilder();
             sb.append("\nReceived ERROR from Thor node (");
             sb.append(this.getIP());
             sb.append("): Code: '");
-            sb.append(String.format("0x%08X", status));
+            sb.append(status);
             sb.append("'");
+
             if (len > 0)
             {
                 byte[] message = new byte[len];
@@ -355,6 +356,18 @@ public class PlainConnection {
                 sb.append(" Message: '");
                 sb.append(new String(message));
                 sb.append("'");
+            }
+
+            switch (status)
+            {
+            case RFCCodes.DAFSERR_cmdstream_invalidexpiry:
+                sb.append("\nInvalid file access expiry reported - change File Access Expiry (HPCCFile) and retry");
+                break;
+            case RFCCodes.DAFSERR_cmdstream_authexpired:
+                sb.append("\nFile access expired before initial request - Retry and consider increasing File Access Expiry (HPCCFile)");
+                break;
+            default:
+                break;
             }
             throw new HpccFileException(sb.toString());
       }
