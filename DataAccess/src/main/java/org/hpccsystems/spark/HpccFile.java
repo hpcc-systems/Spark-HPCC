@@ -213,6 +213,7 @@ public class HpccFile implements Serializable {
       {
           ClusterRemapper clusterremapper = ClusterRemapper.makeMapper(remap_info, fileinfoforread.getAllFilePartCopyLocations());
           this.dataParts = DataPartition.createPartitions(fileinfoforread.getFileParts(), clusterremapper, maxParts, filter, fileinfoforread.getFileAccessInfoBlob());
+
           record_def_json = fileinfoforread.getRecordTypeInfoJson();
           if (record_def_json==null)
           {

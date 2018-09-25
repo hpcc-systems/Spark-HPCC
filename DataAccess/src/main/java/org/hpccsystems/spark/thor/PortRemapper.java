@@ -80,4 +80,14 @@ public class PortRemapper extends ClusterRemapper {
     return new String[] {base_ip};
   }
 
+  /* (non-Javadoc)
+   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
+   */
+  @Override
+  public String[] reviseIPs(String[] dfuparts) throws HpccFileException
+  {
+	 String [] baseaddress = new String[] {base_ip};
+     return  baseaddress;
+  }
+
 }

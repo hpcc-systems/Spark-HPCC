@@ -17,7 +17,6 @@ package org.hpccsystems.spark;
 
 import org.apache.spark.sql.Row;
 import org.hpccsystems.spark.thor.BinaryRecordReader;
-import org.hpccsystems.spark.thor.DataPartition;
 
 
 /**

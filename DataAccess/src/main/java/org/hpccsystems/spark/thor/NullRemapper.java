@@ -72,4 +72,13 @@ public class NullRemapper extends ClusterRemapper {
       return hosts;
   }
 
+  /* (non-Javadoc)
+   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
+   */
+  @Override
+  public String[] reviseIPs(String [] dfuparts) throws HpccFileException
+  {
+    return dfuparts;
+  }
+
 }
