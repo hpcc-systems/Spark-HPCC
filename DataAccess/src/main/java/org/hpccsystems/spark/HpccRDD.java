@@ -30,6 +30,7 @@ import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
+import org.hpccsystems.spark.thor.DataPartition;
 
 import scala.collection.JavaConverters;
 import scala.collection.mutable.ArrayBuffer;
@@ -38,7 +39,7 @@ import scala.reflect.ClassTag$;
 
 
 /**
- * The implementation of the RDD<GenericRowWithSchema> 
+ * The implementation of the RDD<GenericRowWithSchema>
  *
  */
 public class HpccRDD extends RDD<Row> implements Serializable {
@@ -46,20 +47,22 @@ public class HpccRDD extends RDD<Row> implements Serializable {
   private static final ClassTag<Row> CT_RECORD
                           = ClassTag$.MODULE$.apply(Row.class);
   //
-  private HpccPart[] parts;
+  private DataPartition[] parts;
   private RecordDef def;
 
   /**
-   * @param _sc
-   * @param
-   */
-  public HpccRDD(SparkContext _sc, HpccPart[] parts, RecordDef def) {
-    super(_sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
-    this.parts = new HpccPart[parts.length];
-    for (int i=0; i<parts.length; i++) {
-      this.parts[i] = parts[i];
-    }
-    this.def = def;
+   * @param sc
+   * @param dataParts
+   * @param recordDefinition
+  */
+  public HpccRDD(SparkContext sc, DataPartition[] dataParts, RecordDef recordDefinition)
+  {
+	  super(sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
+	  this.parts = new DataPartition[dataParts.length];
+	  for (int i=0; i<dataParts.length; i++) {
+	    this.parts[i] = dataParts[i];
+	  }
+	  this.def = recordDefinition;
   }
   /**
    * Wrap this RDD as a JavaRDD so the Java API can be used.
@@ -76,7 +79,7 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    * @throws IllegalArgumentException
    * @return
    */
-  public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames) 
+  public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames)
     throws IllegalArgumentException {
     StructType schema = this.def.asSchema();
 
@@ -88,7 +91,7 @@ public class HpccRDD extends RDD<Row> implements Serializable {
       dimIndices[i] = schema.fieldIndex(dimNames[i]);
     }
 
-    // Map each row to a labeled point using the precomputed indices 
+    // Map each row to a labeled point using the precomputed indices
     JavaRDD<Row> jRDD = this.asJavaRDD();
     return jRDD.map( (row) -> {
       double label = row.getDouble(labelIndex);
@@ -105,7 +108,7 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    * @throws IllegalArgumentException
    * @return
    */
-  public RDD<Vector> makeMLLibVector(String[] dimNames) 
+  public RDD<Vector> makeMLLibVector(String[] dimNames)
     throws IllegalArgumentException {
     StructType schema = this.def.asSchema();
 
@@ -115,7 +118,7 @@ public class HpccRDD extends RDD<Row> implements Serializable {
     for (int i = 0; i < dimIndices.length; i++) {
       dimIndices[i] = schema.fieldIndex(dimNames[i]);
     }
-    
+
     // Map each row to a vector using the precomputed indices
     JavaRDD<Row> jRDD = this.asJavaRDD();
     return jRDD.map( (row) -> {
@@ -132,7 +135,7 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    */
   @Override
   public InterruptibleIterator<Row> compute(Partition p_arg, TaskContext ctx) {
-    final HpccPart this_part = (HpccPart) p_arg;
+    final DataPartition this_part = (DataPartition) p_arg;
     final RecordDef rd = this.def;
     Iterator<Row> iter = new Iterator<Row>() {
       private HpccRemoteFileReader rfr = new HpccRemoteFileReader(this_part, rd);
@@ -151,10 +154,9 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    * @see org.apache.spark.rdd.RDD#getPartitions()
    */
   @Override
-  public Partition[] getPartitions() {
-    HpccPart[] rslt = new HpccPart[this.parts.length];
-    for (int i=0; i<this.parts.length; i++) rslt[i] = this.parts[i];
-    return rslt;
+  public Partition[] getPartitions()
+  {
+    return parts;
   }
 
 }

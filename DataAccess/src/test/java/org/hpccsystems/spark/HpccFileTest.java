@@ -62,14 +62,17 @@ public class HpccFileTest {
     }
     System.out.println((hpcc.isIndex())  ? "Index file"  : "Sequential file");
     System.out.println("Getting file parts");
-    HpccPart[] parts = hpcc.getFileParts();
-    for (int i=0; i<parts.length; i++) {
-      DataPartition[] dataParts = parts[i].getPartitionInfoList();
-      for (DataPartition dp: dataParts) {
-        System.out.println(dp.getFilename() + ":"
-                + dp.getPrimaryIP()+ ":"
-                + dp.getSecondaryIP() + ": "
-                + dp.getThisPart());
+    DataPartition[] parts = hpcc.getFileParts();
+    for (int i=0; i<parts.length; i++)
+    {
+      DataPartition dataPart = parts[i];
+      {
+        System.out.println(testName + " part " + dataPart.getThisPart() + " of " + dataPart.getNumParts() +":");
+        for (int copyindex = 0; copyindex < dataPart.getCopyCount(); copyindex++)
+        {
+            System.out.print(dataPart.getCopyIP(copyindex) + ":");
+        }
+        System.out.print(dataPart.getThisPart());
       }
     }
     System.out.println("Getting JSON definition");
@@ -91,13 +94,14 @@ public class HpccFileTest {
     } catch(Exception e) {
       System.out.println("Bad input, reading block from part 1");
     }
-    for (DataPartition dp: parts[partIndex].getPartitionInfoList()) {
-      System.out.println("data partiton " + dp.toString());
-      PlainConnection pc = new PlainConnection(dp, rd);
+
+    DataPartition dataPart = parts[partIndex];
+    {
+      System.out.println("data partiton " + dataPart.toString());
+      PlainConnection pc = new PlainConnection(dataPart, rd);
       System.out.print("Transaction : ");
       System.out.println(pc.getTrans());
       System.out.println(pc.getIP());
-      System.out.println(pc.getFilename());
       //pc.setSimulateFail(true);
       //pc.setForceCursorUse(true);
       boolean wantData = true;

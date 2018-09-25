@@ -25,8 +25,7 @@ import org.hpccsystems.spark.thor.DataPartition;
  */
 public class HpccRemoteFileReader {
   private RecordDef def;
-  private HpccPart fp;
-  private int currentPos;
+  private DataPartition fp;
   private BinaryRecordReader brr;
   /**
    * A remote file reader that reads the part identified by the
@@ -34,11 +33,10 @@ public class HpccRemoteFileReader {
    * @param def the definition of the data
    * @param fp the part of the file, name and location
    */
-  public HpccRemoteFileReader(HpccPart fp, RecordDef rd) {
+  public HpccRemoteFileReader(DataPartition fp, RecordDef rd) {
     this.def = rd;
     this.fp = fp;
-    this.brr = new BinaryRecordReader(fp.getDataPartitionAt(0), def);
-    this.currentPos = 0;
+    this.brr = new BinaryRecordReader(fp, def);
   }
   /**
    * Is there more data
@@ -48,14 +46,6 @@ public class HpccRemoteFileReader {
     boolean rslt;
     try {
       rslt = brr.hasNext();
-      if (!rslt) {
-        this.currentPos++;
-        if (this.currentPos<this.fp.numDataPartitions()) {
-          DataPartition dp = fp.getDataPartitionAt(this.currentPos);
-          this.brr = new BinaryRecordReader(dp, this.def);
-          rslt = this.brr.hasNext();
-        }
-      }
     } catch (HpccFileException e) {
       rslt = false;
       System.err.println("Read failure for " + fp.toString());

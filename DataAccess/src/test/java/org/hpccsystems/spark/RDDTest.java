@@ -8,6 +8,7 @@ import java.util.Arrays;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Row;
+import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.RemapInfo;
 
 import scala.collection.JavaConverters;
@@ -77,7 +78,7 @@ public class RDDTest {
           fieldList, ri, 0);
     }
     System.out.println("Getting file parts");
-    HpccPart[] parts = hpcc.getFileParts();
+    DataPartition[] parts = hpcc.getFileParts();
     System.out.println("Getting record definition");
     RecordDef rd = hpcc.getRecordDefinition();
     System.out.println(rd.toString());

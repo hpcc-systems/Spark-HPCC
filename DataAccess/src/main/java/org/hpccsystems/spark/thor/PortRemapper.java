@@ -20,6 +20,7 @@ package org.hpccsystems.spark.thor;
 
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
  * Re-maps addresses to a single IP and a range of ports.  Used when the THOR
@@ -47,22 +48,6 @@ public class PortRemapper extends ClusterRemapper {
   }
 
   /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#revisePrimaryIP(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
-   */
-  @Override
-  public String revisePrimaryIP(DFUFilePartInfo fpi) throws HpccFileException {
-    return this.base_ip;
-  }
-
-  /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseSecondaryIP(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
-   */
-  @Override
-  public String reviseSecondaryIP(DFUFilePartInfo fpi) throws HpccFileException {
-    return "";
-  }
-
-  /* (non-Javadoc)
    * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseClearPort(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
    */
   @Override
@@ -76,6 +61,23 @@ public class PortRemapper extends ClusterRemapper {
   @Override
   public int reviseSslPort(DFUFilePartInfo fpi) {
     return (this.portSsl==0)  ? 0  : this.portSsl-1+fpi.getId();
+  }
+
+  /* (non-Javadoc)
+   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
+   */
+  @Override
+  public String[] reviseIPs(DFUFileCopyWrapper[] dfuFileCopies) throws HpccFileException
+  {
+     return new String[] {base_ip};
+  }
+
+  /* (non-Javadoc)
+  * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(java.lang.String[])
+  */
+  @Override
+  public String[] reviseIPs(String[] hosts) throws HpccFileException {
+    return new String[] {base_ip};
   }
 
 }

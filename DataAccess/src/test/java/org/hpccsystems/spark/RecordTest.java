@@ -57,7 +57,7 @@ public class RecordTest {
       hpccFile = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, new FileFilter(filterExpression), ri, 0);
     }
     System.out.println("Getting file parts");
-    HpccPart[] parts = hpccFile.getFileParts();
+    DataPartition[] parts = hpccFile.getFileParts();
     for (int i=0; i<parts.length; i++) {
       System.out.println(parts[i].toString());
     }
@@ -65,33 +65,34 @@ public class RecordTest {
     RecordDef rd = hpccFile.getRecordDefinition();
     FieldDef root_def = rd.getRootDef();
     Iterator<FieldDef> iter = root_def.getDefinitions();
-    while (iter.hasNext()) {
+    while (iter.hasNext()){
       FieldDef field = iter.next();
       System.out.println(field.toString());
     }
-    for (int i=0; i<parts.length; i++) {
+    for (int i=0; i<parts.length; i++)
+    {
       System.out.println("Reading records from part index " + i);
-      for (int j=0; j<parts[i].numDataPartitions(); j++) {
-        try {
-          DataPartition dataPartition = parts[i].getDataPartitionAt(j);
-          BinaryRecordReader brr = new BinaryRecordReader(dataPartition, rd);
-          while (brr.hasNext()) {
-            Row rec = brr.getNext();
-            System.out.println(rec.toString());
-          }
-          System.out.println("completed part at index "+i);
-        } catch (Exception e) {
-          StringBuilder sb = new StringBuilder();
-          sb.append("Failed for part ");
-          sb.append(parts[i].getDataPartitionAt(j).getThisPart());
-          sb.append(" to ");
-          sb.append(parts[i].getDataPartitionAt(j).getPrimaryIP());
-          sb.append(":");
-          sb.append(parts[i].getDataPartitionAt(j).getClearPort());
-          sb.append(" with error ");
-          sb.append(e.getMessage());
-          System.out.println(sb.toString());
+      try
+      {
+        BinaryRecordReader brr = new BinaryRecordReader( parts[i], rd);
+        while (brr.hasNext()) {
+          Row rec = brr.getNext();
+          System.out.println(rec.toString());
         }
+        System.out.println("Completed file part " +  parts[i].getThisPart());
+      }
+      catch (Exception e)
+      {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Failed for part ");
+        sb.append(parts[i].getThisPart());
+        sb.append(" to ");
+        sb.append(parts[i].getCopyIP(0));// we might not need this ip...
+        sb.append(":");
+        sb.append(parts[i].getClearPort());
+        sb.append(" with error ");
+        sb.append(e.getMessage());
+        System.out.println(sb.toString());
       }
     }
     System.out.println("Completed read, end of test");

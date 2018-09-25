@@ -23,6 +23,7 @@ import java.util.StringTokenizer;
 
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
  * Map internal IP addresses to external IP addresses.  Note that the
@@ -37,74 +38,65 @@ public class AddrRemapper extends ClusterRemapper {
    * the number of parts equals the number of nodes for files and is one
    * higher for keys.
    * @param ri re-mapping information for an address re-mapper
-   * @param fpiList file part list for the file is used as the source of IP values
+   * @param strings all locations available on cluster
    * that need to be mapped
    * @throws HpccFileException when something is wrong with the info
    */
-  public AddrRemapper(RemapInfo ri, DFUFilePartInfo[] fpiList)
-      throws HpccFileException {
-    super(ri);
-    if (!ri.isIpAliasing()) {
-      throw new IllegalArgumentException("Inappropriate type of re-mapping info");
-    }
-    HashSet<String> ip_set = new HashSet<String>(fpiList.length * 2);
-    for (DFUFilePartInfo fp : fpiList) {
-      ip_set.add(fp.getIp());
-    }
-    String[] ip_list = ip_set.toArray(new String[0]);
-    Arrays.sort(ip_list);
-    if (ip_list.length > ri.getNodes()) {
-      StringBuilder sb = new StringBuilder();
-      sb.append("Too many addresses, need ");
-      sb.append(ip_list.length);
-      sb.append(" but have only ");
-      sb.append(ri.getNodes());
-      throw new HpccFileException(sb.toString());
-    }
-    short[] target_parts = new short[4];
-    StringTokenizer st = new StringTokenizer(ri.getBaseIp(), ".");
-    if (st.countTokens() != 4) {
-      throw new IllegalArgumentException("Incomplete IP address for target");
-    }
-    int pos = 0;
-    while (st.hasMoreTokens()) {
-      target_parts[pos] = Short.parseShort(st.nextToken());
-      pos++;
-    }
-    ip_tab = new HashMap<String, String>(ip_list.length*2);
-    for (int i=0; i<ip_list.length; i++) {
-      StringBuilder sb = new StringBuilder();
-      for (int j=0; j<4; j++) {
-        sb.append(target_parts[j]);
-        if (j<3) sb.append(".");
+  public AddrRemapper(RemapInfo ri, String[] locations) throws HpccFileException
+  {
+      super(ri);
+      if (!ri.isIpAliasing())
+      {
+        throw new IllegalArgumentException("Inappropriate type of re-mapping info");
       }
-      ip_tab.put(ip_list[i], sb.toString());
-      target_parts[3]++;
-      if (target_parts[3] < 256) continue;
-      target_parts[3] = 0;
-      target_parts[2]++;
-      if (target_parts[2] < 256) continue;
-      target_parts[2] = 0;
-      target_parts[1]++;
-      if (target_parts[1] < 256) continue;
-      throw new IllegalArgumentException("Too many nodes for starting address");
-    }
-  }
 
-  @Override
-  public String revisePrimaryIP(DFUFilePartInfo fpi) throws HpccFileException {
-    if (!this.ip_tab.containsKey(fpi.getIp())) {
-      throw new HpccFileException("IP not in table");
-    }
-    return ip_tab.get(fpi.getIp());
-  }
+      HashSet<String> ip_set = new HashSet<String>(locations.length);
 
-  @Override
-  public String reviseSecondaryIP(DFUFilePartInfo fpi) throws HpccFileException {
-    if (!this.ip_tab.containsKey(fpi.getIp())) {
-      throw new HpccFileException("IP not in table");
-    }
-    return ip_tab.get(fpi.getIp());
+      for ( String location : locations)
+      {
+        ip_set.add(location);
+      }
+      String[] ip_list = ip_set.toArray(new String[0]);
+      Arrays.sort(ip_list);
+      if (ip_list.length > ri.getNodes())
+      {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Too many addresses, need ");
+        sb.append(ip_list.length);
+        sb.append(" but have only ");
+        sb.append(ri.getNodes());
+        throw new HpccFileException(sb.toString());
+      }
+      short[] target_parts = new short[4];
+      StringTokenizer st = new StringTokenizer(ri.getBaseIp(), ".");
+      if (st.countTokens() != 4)
+      {
+        throw new IllegalArgumentException("Incomplete IP address for target");
+      }
+      int pos = 0;
+      while (st.hasMoreTokens())
+      {
+        target_parts[pos] = Short.parseShort(st.nextToken());
+        pos++;
+      }
+      ip_tab = new HashMap<String, String>(ip_list.length*2);
+      for (int i=0; i<ip_list.length; i++) {
+        StringBuilder sb = new StringBuilder();
+        for (int j=0; j<4; j++) {
+          sb.append(target_parts[j]);
+          if (j<3) sb.append(".");
+        }
+        ip_tab.put(ip_list[i], sb.toString());
+        target_parts[3]++;
+        if (target_parts[3] < 256) continue;
+        target_parts[3] = 0;
+        target_parts[2]++;
+        if (target_parts[2] < 256) continue;
+        target_parts[2] = 0;
+        target_parts[1]++;
+        if (target_parts[1] < 256) continue;
+        throw new IllegalArgumentException("Too many nodes for starting address");
+      }
   }
 
   @Override
@@ -128,6 +120,41 @@ public class AddrRemapper extends ClusterRemapper {
           if (fpi1.getId() > fpi2.getId()) return 1;
           return 0;
         }
-};
+  };
 
+  /* (non-Javadoc)
+  * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
+  */
+  //@Override
+  public String[] reviseIPs(String[] ips) throws HpccFileException
+  {
+    String [] revisedips = new String[ips.length];
+    for (int ipindex = 0; ipindex < ips.length; ipindex++)
+    {
+       if (!this.ip_tab.containsKey(ips[ipindex]))
+       {
+         throw new HpccFileException("IP not in cluster ip mapping table");
+       }
+       revisedips[ipindex] = ip_tab.get(ips[ipindex]);
+    }
+    return revisedips;
+  }
+
+   /* (non-Javadoc)
+   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
+   */
+   @Override
+   public String[] reviseIPs(DFUFileCopyWrapper[] dfuFileCopies) throws HpccFileException
+   {
+     String [] revisedips = new String[dfuFileCopies.length];
+     for (int partsindex = 0; partsindex < revisedips.length; partsindex++)
+     {
+        if (!this.ip_tab.containsKey(dfuFileCopies[partsindex].getCopyHost()))
+        {
+          throw new HpccFileException("IP not in cluster ip mapping table");
+        }
+        revisedips[partsindex] = ip_tab.get(dfuFileCopies[partsindex].getCopyHost());
+    }
+    return revisedips;
+  }
 }
