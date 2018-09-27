@@ -44,11 +44,6 @@ public class AddrRemapper extends ClusterRemapper {
    * @throws HpccFileException when something is wrong with the info
    */
   public AddrRemapper(RemapInfo ri, String[] locations) throws HpccFileException
-   * @param partlocations all locations available on cluster
-   * that need to be mapped
-   * @throws HpccFileException when something is wrong with the info
-   */
-  public AddrRemapper(RemapInfo ri, DFUPartLocations[] partlocations) throws HpccFileException
   {
       super(ri);
       if (!ri.isIpAliasing())

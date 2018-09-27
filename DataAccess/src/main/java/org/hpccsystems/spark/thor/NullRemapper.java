@@ -77,8 +77,14 @@ public class NullRemapper extends ClusterRemapper {
    */
   @Override
   public String[] reviseIPs(String [] dfuparts) throws HpccFileException
+
   {
-    return dfuparts;
+      String [] revisedIPs = new String[dfuFileCopies.length];
+      for (int i = 0; i < revisedIPs.length; i++)
+      {
+          revisedIPs[i] = dfuFileCopies[i].getCopyHost();
+      }
+      return revisedIPs;
   }
 
 }

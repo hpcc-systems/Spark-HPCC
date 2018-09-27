@@ -86,8 +86,6 @@ public class PortRemapper extends ClusterRemapper {
   @Override
   public String[] reviseIPs(String[] dfuparts) throws HpccFileException
   {
-	 String [] baseaddress = new String[] {base_ip};
-     return  baseaddress;
+     return new String[] {base_ip};
   }
-
 }

@@ -24,7 +24,7 @@ import org.apache.spark.Partition;
 import org.hpccsystems.spark.thor.ClusterRemapper;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FileFilter;
-import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartCopies;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFilePartWrapper;
 
 /**
  * A file part of an HPCC file.  This is the Spark partition for the RDD.
@@ -88,7 +88,6 @@ public class HpccPart implements Partition, Serializable {
   /**
    * Create an array of Spark partition objects for HPCC file parts.
    * @param dfufilepartsinfo Array of file parts info
-   * @param locationmapper Translates location indexes to known locations
    * @param clusterremapper Virtual cluster address mapper
    *  the maximum number of partitions or zero for no max
    * @param filter a filter expression to select records which may be
@@ -98,9 +97,9 @@ public class HpccPart implements Partition, Serializable {
    *
    * @throws HpccFileException
    */
-  public static HpccPart[] makeFileParts(DFUPartCopies[] dfufilepartsinfo, DFUCopyLocationResolver locationmapper, ClusterRemapper clusterremapper, int max_parts, FileFilter filter, String fileAccessBlob) throws HpccFileException
+  public static HpccPart[] makeFileParts(DFUFilePartWrapper [] dfufilepartsinfo,  ClusterRemapper clusterremapper, int max_parts, FileFilter filter, String fileAccessBlob) throws HpccFileException
   {
-    DataPartition[] dataParts = DataPartition.createPartitions(dfufilepartsinfo, locationmapper, clusterremapper, max_parts, filter, fileAccessBlob);
+    DataPartition[] dataParts = DataPartition.createPartitions(dfufilepartsinfo, clusterremapper, max_parts, filter, fileAccessBlob);
     HpccPart[] rslt = new HpccPart[dataParts.length];
     for (int i=0; i<rslt.length; i++ )
     {
