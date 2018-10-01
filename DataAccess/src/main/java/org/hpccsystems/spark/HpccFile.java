@@ -208,7 +208,7 @@ public class HpccFile implements Serializable {
     HPCCWsDFUClient dfuClient = HPCCWsDFUClient.get(conn);
     String record_def_json = "";
     try {
-      DFUFileAccessInfoWrapper fileinfoforread = fetchReadFileInfo(fileName, dfuClient, fileAccessExpirySecs, "");
+      DFUFileAccessInfoWrapper fileinfoforread = fetchReadFileInfo(fileName, dfuClient, fileAccessExpirySecs, "thor_160");
       if (fileinfoforread.getNumParts() > 0)
       {
           ClusterRemapper clusterremapper = ClusterRemapper.makeMapper(remap_info, fileinfoforread.getAllFilePartCopyLocations());

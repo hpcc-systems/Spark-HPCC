@@ -22,7 +22,6 @@ import java.util.HashSet;
 import java.util.StringTokenizer;
 
 import org.hpccsystems.spark.HpccFileException;
-import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartLocations;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
