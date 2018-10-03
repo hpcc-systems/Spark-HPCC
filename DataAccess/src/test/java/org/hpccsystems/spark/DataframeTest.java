@@ -74,8 +74,7 @@ public class DataframeTest {
       hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, 0);
     } else {
       RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-          fieldList, ri, 0);
+      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, ri, 0);
     }
     System.out.println("Getting file parts");
     DataPartition[] parts = hpcc.getFileParts();

@@ -7,6 +7,7 @@ import java.util.Iterator;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FieldDef;
 import org.hpccsystems.spark.thor.FileFilter;
+import org.hpccsystems.spark.thor.NullRemapper;
 import org.hpccsystems.spark.thor.PlainConnection;
 import org.hpccsystems.spark.thor.RemapInfo;
 
@@ -18,48 +19,46 @@ public class HpccFileTest {
 
   public static void main(String[] args) throws Exception {
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-    System.out.print("Enter protocol: ");
+    System.out.print("Enter EclWatch protocol: ");
     System.out.flush();
     String protocol = br.readLine();
-    System.out.print("Enter ip: ");
+    System.out.print("Enter EclWatch ip: ");
     System.out.flush();
     String esp_ip = br.readLine();
-    System.out.print("Enter port: ");
+    System.out.print("Enter EclWatch port: ");
     System.out.flush();
     String port = br.readLine();
-    System.out.print("Enter file name: ");
+    System.out.print("Enter HPCC file name: ");
     System.out.flush();
     String testName = br.readLine();
-    System.out.print("User id: ");
+    System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
+    System.out.flush();
+    String fileclustername = br.readLine();
+    System.out.print("Enter EclWatch User ID: ");
     System.out.flush();
     String user = br.readLine();
-    System.out.print("pass word: ");
+    System.out.print("Enter EclWatch Password: ");
     System.out.flush();
     String pword = br.readLine();
-    System.out.print("Field list or empty: ");
+    System.out.print("Enter Project Field list or empty: ");
     System.out.flush();
     String fieldList = br.readLine();
-    System.out.print("File filter expression or empty: ");
+    System.out.print("Enter Record filter expression or empty: ");
     System.out.flush();
     String filterExpression = br.readLine();
-    System.out.print("Number of nodes for remap or empty: ");
+    System.out.print("Enter Number of nodes for remap or empty: ");
     System.out.flush();
     String nodes = br.readLine();
-    System.out.print("Base IP or empty: ");
+    System.out.print("Enter Base IP for remap or empty: ");
     System.out.flush();
     String base_ip = br.readLine();
     System.out.print("Specify file part to read (1 based): ");
     System.out.flush();
     String filePart = br.readLine();
-    HpccFile hpcc;
-    if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-                          fieldList, new FileFilter(filterExpression), 0);
-    } else {
-      RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-          fieldList, new FileFilter(filterExpression), ri, 0);
-    }
+
+    RemapInfo ri = new RemapInfo(nodes, base_ip);
+    HpccFile hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, new FileFilter(filterExpression), ri, 0, fileclustername);
+
     System.out.println((hpcc.isIndex())  ? "Index file"  : "Sequential file");
     System.out.println("Getting file parts");
     DataPartition[] parts = hpcc.getFileParts();
