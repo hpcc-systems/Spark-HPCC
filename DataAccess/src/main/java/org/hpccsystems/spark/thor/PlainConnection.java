@@ -83,7 +83,7 @@ public class PlainConnection {
    * The port number for the remote read service
    * @return port number
    */
-  public int getPort() { return this.dataPart.getClearPort(); }
+  public int getPort() { return this.dataPart.getPort(); }
   /**
    * The read transaction in JSON format
    * @return read transaction
@@ -230,7 +230,7 @@ public class PlainConnection {
             try
             {
               sock = new Socket();
-              sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getClearPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
+              sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
             }
             catch (java.net.UnknownHostException e)
             {

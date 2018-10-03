@@ -71,7 +71,7 @@ public class HpccFile implements Serializable {
       String user, String pword, String targetColumnList)
           throws HpccFileException{
     this(fileName, protocol, host, port, user, pword, targetColumnList,
-        FileFilter.nullFilter(), new RemapInfo(), 0);
+        FileFilter.nullFilter(), new RemapInfo(), 0, "");
   }
  /**
    * Constructor for the HpccFile.  Captures the information
@@ -92,7 +92,7 @@ public class HpccFile implements Serializable {
           String user, String pword, String targetColumnList, int maxParts)
           throws HpccFileException{
     this(fileName, protocol, host, port, user, pword, targetColumnList,
-        FileFilter.nullFilter(), new RemapInfo(), maxParts);
+        FileFilter.nullFilter(), new RemapInfo(), maxParts, "");
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -112,7 +112,7 @@ public class HpccFile implements Serializable {
       String port, String user, String pword, String targetColumnList,
       FileFilter filter) throws HpccFileException {
     this(fileName, protocol, host, port, user, pword, targetColumnList,
-         filter, new RemapInfo(), 0);
+         filter, new RemapInfo(), 0, "");
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -133,7 +133,7 @@ public class HpccFile implements Serializable {
       String port, String user, String pword, String targetColumnList,
       FileFilter filter, int maxParts) throws HpccFileException {
     this(fileName, protocol, host, port, user, pword, targetColumnList,
-         filter, new RemapInfo(), maxParts);
+         filter, new RemapInfo(), maxParts, "");
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -153,7 +153,7 @@ public class HpccFile implements Serializable {
       String port, String user, String pword, String targetColumnList,
       RemapInfo remap_info) throws HpccFileException {
     this(fileName, protocol, host, port, user, pword, targetColumnList,
-         FileFilter.nullFilter(), remap_info, 0);
+         FileFilter.nullFilter(), remap_info, 0, "");
   }
   /**
    * Constructor for the HpccFile.  Captures the information
@@ -174,7 +174,7 @@ public class HpccFile implements Serializable {
       String port, String user, String pword, String targetColumnList,
       RemapInfo remap_info, int maxParts) throws HpccFileException {
     this(fileName, protocol, host, port, user, pword, targetColumnList,
-         FileFilter.nullFilter(), remap_info, maxParts);
+         FileFilter.nullFilter(), remap_info, maxParts, "");
   }
 
   /**
@@ -194,11 +194,12 @@ public class HpccFile implements Serializable {
    * @param filter a file filter to select records of interest
    * @param remap_info address and port re-mapping info for THOR cluster
    * @param maxParts the maximum number of partitions or zero for no max
+   * @param targetfilecluster optional - the hpcc cluster the target file resides in
    * @throws HpccFileException
    */
   public HpccFile(String fileName, String protocol, String host, String port,
       String user, String pword, String targetColumnList, FileFilter filter,
-      RemapInfo remap_info, int maxParts) throws HpccFileException
+      RemapInfo remap_info, int maxParts, String targetfilecluster) throws HpccFileException
   {
     this.recordDefinition = new RecordDef();  // missing, the default
     ColumnPruner cp = new ColumnPruner(targetColumnList);
@@ -208,12 +209,11 @@ public class HpccFile implements Serializable {
     HPCCWsDFUClient dfuClient = HPCCWsDFUClient.get(conn);
     String record_def_json = "";
     try {
-      DFUFileAccessInfoWrapper fileinfoforread = fetchReadFileInfo(fileName, dfuClient, fileAccessExpirySecs, "thor_160");
+      DFUFileAccessInfoWrapper fileinfoforread = fetchReadFileInfo(fileName, dfuClient, fileAccessExpirySecs, targetfilecluster);
       if (fileinfoforread.getNumParts() > 0)
       {
-          ClusterRemapper clusterremapper = ClusterRemapper.makeMapper(remap_info, fileinfoforread.getAllFilePartCopyLocations());
+          ClusterRemapper clusterremapper = ClusterRemapper.makeMapper(remap_info, fileinfoforread);
           this.dataParts = DataPartition.createPartitions(fileinfoforread.getFileParts(), clusterremapper, maxParts, filter, fileinfoforread.getFileAccessInfoBlob());
-
           record_def_json = fileinfoforread.getRecordTypeInfoJson();
           if (record_def_json==null)
           {
@@ -261,7 +261,7 @@ public class HpccFile implements Serializable {
       String user, String pword, String targetColumnList, FileFilter filter,
       RemapInfo remap_info, int maxParts, int fileAccessExpirySecs) throws HpccFileException
   {
-  this(fileName, protocol, host, port, user, pword, targetColumnList, filter, remap_info, maxParts);
+  this(fileName, protocol, host, port, user, pword, targetColumnList, filter, remap_info, maxParts, "");
   this.fileAccessExpirySecs = fileAccessExpirySecs;
   }
   /**

@@ -17,37 +17,28 @@ package org.hpccsystems.spark.thor;
 
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileAccessInfoWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
  * A no action re-map of the address.  Does provide the port information.
  */
 public class NullRemapper extends ClusterRemapper {
+ private int rowServicePort = DEFAULT_ROWSERVICE_PORT;
+ private boolean usesSSL = DEFAULT_ROWSERVICE_USES_SSL;
 
   /**
    * @param ri
+   * @param fileaccessinfo
    */
-  public NullRemapper(RemapInfo ri) throws HpccFileException {
+  public NullRemapper(RemapInfo ri, DFUFileAccessInfoWrapper fileaccessinfo) throws HpccFileException {
     super(ri);
     if (!ri.isNullMapper()) {
       throw new IllegalArgumentException("Incompatible re-mapping information");
     }
-  }
 
-  /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseClearPort(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
-   */
-  @Override
-  public int reviseClearPort(DFUFilePartInfo fpi) {
-    return DEFAULT_CLEAR;
-  }
-
-  /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseSslPort(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
-   */
-  @Override
-  public int reviseSslPort(DFUFilePartInfo fpi) {
-    return DEFAULT_SSL;
+    rowServicePort = fileaccessinfo.getFileAccessPort();
+    usesSSL = fileaccessinfo.getFileAccessSSL();
   }
 
   /* (non-Javadoc)
@@ -73,18 +64,19 @@ public class NullRemapper extends ClusterRemapper {
   }
 
   /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
-   */
+  * @see org.hpccsystems.spark.thor.ClusterRemapper#revisePort(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
+  */
   @Override
-  public String[] reviseIPs(String [] dfuparts) throws HpccFileException
+  public int revisePort(DFUFilePartInfo fpi) {
+	return rowServicePort;
+  }
 
-  {
-      String [] revisedIPs = new String[dfuFileCopies.length];
-      for (int i = 0; i < revisedIPs.length; i++)
-      {
-          revisedIPs[i] = dfuFileCopies[i].getCopyHost();
-      }
-      return revisedIPs;
+  /* (non-Javadoc)
+   * @see org.hpccsystems.spark.thor.ClusterRemapper#getUsesSSLConnection(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
+  */
+  @Override
+  public boolean getUsesSSLConnection(DFUFilePartInfo fpi) {
+	return usesSSL;
   }
 
 }
