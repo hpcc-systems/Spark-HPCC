@@ -16,8 +16,11 @@
 package org.hpccsystems.spark.thor;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.charset.Charset;
 
+import org.apache.log4j.Logger;
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.spark.RecordDef;
 
@@ -37,11 +40,15 @@ public class PlainConnection {
   private java.io.DataInputStream dis;
   private java.io.DataOutputStream dos;
   private java.net.Socket sock;
-  //
+  private int currentFilePartCopyIndex;
+  private int DEFAULT_CONNECT_TIMEOUT_MILIS = 1000;
+
   public static final Charset HPCCCharSet = Charset.forName("ISO-8859-1");
 
   // Note: The platform may respond with more data than this if records are larger than this limit.
   public static final int MaxReadSizeKB = 4096;
+
+  private static final Logger log = Logger.getLogger(PlainConnection.class.getName());
   /**
    * A plain socket connect to a THOR node for remote read
    * @param hpccPart the remote file name and IP
@@ -55,17 +62,23 @@ public class PlainConnection {
     this.handle = 0;
     this.cursorBin = new byte[0];
     this.simulateFail = false;
+    this.currentFilePartCopyIndex = 0;
   }
-  /**
-   * The remote file name.
-   * @return file name
-   */
-  public String getFilename() { return this.dataPart.getFilename(); }
+
+  private boolean setNextFilePartCopy()
+  {
+      if (currentFilePartCopyIndex + 1 >= dataPart.getCopyCount())
+          return false;
+
+      currentFilePartCopyIndex++;
+      return true;
+  }
+
   /**
    * The primary IP for the file part
    * @return IP address
    */
-  public String getIP() { return this.dataPart.getPrimaryIP(); }
+  public String getIP() { return this.dataPart.getCopyIP(currentFilePartCopyIndex); }
   /**
    * The port number for the remote read service
    * @return port number
@@ -133,8 +146,11 @@ public class PlainConnection {
   public byte[] readBlock()
     throws HpccFileException {
     byte[] rslt = new byte[0];
-    if (this.closed) return rslt;    // no data left to send
-    if (!this.active) makeActive();  // do the first read
+    if (this.closed) return rslt; // no data left to send
+    if (!this.active) // attempt to do the first read
+    {
+        makeActive();
+    }
     int len = readReplyLen();
     if (len==0) {
       this.closed = true;
@@ -199,32 +215,64 @@ public class PlainConnection {
    * Open client socket to the primary and open the streams
    * @throws HpccFileException
    */
-  private void makeActive() throws HpccFileException{
+  private void makeActive() throws HpccFileException
+  {
     this.active = false;
     this.handle = 0;
     this.cursorBin = new byte[0];
-    try {
-      sock = new java.net.Socket(this.getIP(), this.dataPart.getClearPort());
-    } catch (java.net.UnknownHostException e) {
-      throw new HpccFileException("Bad file part addr "+this.getIP(), e);
-    } catch (java.io.IOException e) {
-      throw new HpccFileException(e);
-    }
-    try {
-      this.dos = new java.io.DataOutputStream(sock.getOutputStream());
-      this.dis = new java.io.DataInputStream(sock.getInputStream());
-    } catch (java.io.IOException e) {
-      throw new HpccFileException("Failed to create streams", e);
-    }
-    this.active = true;
-    try {
-      String readTrans = makeInitialRequest();
-      int transLen = readTrans.length();
-      this.dos.writeInt(transLen);
-      this.dos.write(readTrans.getBytes(HPCCCharSet),0,transLen);
-      this.dos.flush();
-    } catch (IOException e) {
-      throw new HpccFileException("Failed on initial remote read read trans", e);
+    
+    while (true)
+    {
+        try
+        {
+            log.debug("Attempting to connect to file part : '" + dataPart.getThisPart() + "' Copy: '" + (currentFilePartCopyIndex+1) + "' on IP: '" + getIP() + "'");
+
+            try
+            {
+              sock = new Socket();
+              sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getClearPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
+            }
+            catch (java.net.UnknownHostException e)
+            {
+              throw new HpccFileException("Bad file part addr "+this.getIP(), e);
+            }
+            catch (java.io.IOException e)
+            {
+              throw new HpccFileException(e);
+            }
+
+            try
+            {
+              this.dos = new java.io.DataOutputStream(sock.getOutputStream());
+              this.dis = new java.io.DataInputStream(sock.getInputStream());
+            }
+            catch (java.io.IOException e)
+            {
+              throw new HpccFileException("Failed to create streams", e);
+            }
+            this.active = true;
+            try
+            {
+              String readTrans = makeInitialRequest();
+              int transLen = readTrans.length();
+              this.dos.writeInt(transLen);
+              this.dos.write(readTrans.getBytes(HPCCCharSet),0,transLen);
+              this.dos.flush();
+            }
+            catch (IOException e)
+            {
+              throw new HpccFileException("Failed on initial remote read read trans", e);
+            }
+            return;
+        }
+        catch (Exception e)
+        {
+            log.error("Could not reach file part: '" + dataPart.getThisPart() + "' copy: '" + (currentFilePartCopyIndex+1) + "' on IP: '" + getIP());
+            log.error(e.getMessage());
+
+            if (!setNextFilePartCopy())
+                throw new HpccFileException("Unsuccessfuly attempted to connect to all file part copies", e); // this should be a multi exception
+        }
     }
   }
   /**
@@ -234,7 +282,6 @@ public class PlainConnection {
    */
   private String makeInitialRequest() {
     StringBuilder sb = new StringBuilder(100
-        + this.dataPart.getFilename().length()
         + this.recordDefinition.getJsonInputDef().length()
         + this.recordDefinition.getJsonOutputDef().length());
     sb.append(RFCCodes.RFCStreamReadCmd);
@@ -250,13 +297,13 @@ public class PlainConnection {
    */
   private String makeNodeObject() {
     StringBuilder sb = new StringBuilder(50
-        + this.dataPart.getFilename().length()
         + this.recordDefinition.getJsonInputDef().length()
         + this.recordDefinition.getJsonOutputDef().length());
-    sb.append(" \"node\" : ");
-    sb.append("{\n \"kind\" : \"");
-    sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
-    sb.append("\",\n \"metaInfo\" : \"");
+    sb.append(" \"node\" : {\n ");
+    //sb.append("{\n \"kind\" : \"");
+    //sb.append((this.dataPart.isIndex())? "indexread"  : "diskread");
+    //sb.append("\",\n \"metaInfo\" : \"");
+    sb.append("\"metaInfo\" : \"");
     sb.append(this.dataPart.getFileAccessBlob());
     sb.append("\",\n \"filePart\" : \"");
     sb.append(this.dataPart.getThisPart());
@@ -266,9 +313,8 @@ public class PlainConnection {
       sb.append(this.dataPart.getFilter().toJsonObject());
       sb.append(",\n");
     }
-    sb.append(" \"compressed\": \"");
-    sb.append((this.dataPart.isCompressed()) ?"true"  :"false");
-    sb.append("\", \n \"input\" : ");
+
+    sb.append("\n \"input\" : ");
     sb.append(this.recordDefinition.getJsonInputDef());
     sb.append(", \n \"output\" : ");
     sb.append(this.recordDefinition.getJsonOutputDef());
@@ -291,7 +337,6 @@ public class PlainConnection {
   }
   private String makeCursorRequest() {
     StringBuilder sb = new StringBuilder(130
-        + this.dataPart.getFilename().length()
         + this.recordDefinition.getJsonInputDef().length()
         + this.recordDefinition.getJsonOutputDef().length()
         + (int)(this.cursorBin.length*1.4));

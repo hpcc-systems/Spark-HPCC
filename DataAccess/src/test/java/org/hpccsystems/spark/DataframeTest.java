@@ -9,6 +9,7 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.RemapInfo;
 
 import scala.collection.JavaConverters;
@@ -77,8 +78,8 @@ public class DataframeTest {
           fieldList, ri, 0);
     }
     System.out.println("Getting file parts");
-    HpccPart[] parts = hpcc.getFileParts();
-    for (HpccPart p : parts) System.out.println(p.toString());
+    DataPartition[] parts = hpcc.getFileParts();
+    for (DataPartition p : parts) System.out.println(p.toString());
     System.out.println("Getting record definition");
     RecordDef rd = hpcc.getRecordDefinition();
     System.out.println(rd.toString());

@@ -17,6 +17,7 @@ package org.hpccsystems.spark.thor;
 
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
  * A no action re-map of the address.  Does provide the port information.
@@ -34,25 +35,6 @@ public class NullRemapper extends ClusterRemapper {
   }
 
   /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#revisePrimaryIP(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
-   */
-  @Override
-  public String revisePrimaryIP(DFUFilePartInfo fpi) throws HpccFileException {
-    if (fpi.getCopy() != 1) {
-      throw new IllegalArgumentException("Secondary part info provided");
-    }
-    return fpi.getIp();
-  }
-
-  /* (non-Javadoc)
-   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseSecondaryIP(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
-   */
-  @Override
-  public String reviseSecondaryIP(DFUFilePartInfo fpi) throws HpccFileException {
-    return fpi.getIp();
-  }
-
-  /* (non-Javadoc)
    * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseClearPort(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
    */
   @Override
@@ -66,6 +48,28 @@ public class NullRemapper extends ClusterRemapper {
   @Override
   public int reviseSslPort(DFUFilePartInfo fpi) {
     return DEFAULT_SSL;
+  }
+
+  /* (non-Javadoc)
+   * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(org.hpccsystems.ws.client.platform.DFUFilePartInfo[])
+   */
+  @Override
+  public String[] reviseIPs(DFUFileCopyWrapper[] dfuFileCopies) throws HpccFileException
+  {
+      String [] revisedIPs = new String[dfuFileCopies.length];
+      for (int i = 0; i < revisedIPs.length; i++)
+      {
+          revisedIPs[i] = dfuFileCopies[i].getCopyHost();
+      }
+      return revisedIPs;
+  }
+
+  /* (non-Javadoc)
+  * @see org.hpccsystems.spark.thor.ClusterRemapper#reviseIPs(java.lang.String[])
+  */
+  @Override
+  public String[] reviseIPs(String[] hosts) throws HpccFileException {
+      return hosts;
   }
 
 }

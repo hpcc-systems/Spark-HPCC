@@ -16,7 +16,6 @@
 package org.hpccsystems.spark;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.UUID;
 
 import org.apache.spark.SparkContext;
@@ -24,17 +23,15 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.hpccsystems.spark.thor.ClusterRemapper;
+import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FileFilter;
 import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
 import org.hpccsystems.ws.client.HPCCWsDFUClient;
-import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUFileAccessResponse;
-import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartCopies;
-import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartLocations;
 import org.hpccsystems.ws.client.gen.wsdfu.v1_39.SecAccessType;
-import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
 import org.hpccsystems.ws.client.utils.Connection;
-
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileAccessInfoWrapper;
 import org.apache.spark.sql.execution.python.EvaluatePython;
 
 /**
@@ -45,7 +42,7 @@ import org.apache.spark.sql.execution.python.EvaluatePython;
 public class HpccFile implements Serializable {
   static private final long serialVersionUID = 1L;
 
-  private HpccPart[] parts;
+  private DataPartition[] dataParts;
   private RecordDef recordDefinition;
   private boolean isIndex;
   static private final int DEFAULT_ACCESS_EXPIRY_SECONDS = 120;
@@ -211,17 +208,12 @@ public class HpccFile implements Serializable {
     HPCCWsDFUClient dfuClient = HPCCWsDFUClient.get(conn);
     String record_def_json = "";
     try {
-      ArrayList<DFUFileDetailInfo> fd_list = new ArrayList<DFUFileDetailInfo>();
-      HpccFile.recurseFDI(fd_list, fileName, dfuClient);
-      if (fd_list.size() > 0)
+      DFUFileAccessInfoWrapper fileinfoforread = fetchReadFileInfo(fileName, dfuClient, fileAccessExpirySecs, "");
+      if (fileinfoforread.getNumParts() > 0)
       {
-          DFUFileDetailInfo[] fd_array = fd_list.toArray(new DFUFileDetailInfo[0]);
-          String clustername = fd_array[0].getNodeGroup();
-          String fileAccessBlob = acquireReadFileAccess(fileName, dfuClient, fileAccessExpirySecs, clustername);
-
-          this.isIndex = fd_array[0].isIndex();
-          this.parts = HpccPart.makeFileParts(fd_array, remap_info, maxParts, filter, fileAccessBlob);
-          record_def_json = fd_array[0].getJsonInfo();
+          ClusterRemapper clusterremapper = ClusterRemapper.makeMapper(remap_info, fileinfoforread.getAllFilePartCopyLocations());
+          this.dataParts = DataPartition.createPartitions(fileinfoforread.getFileParts(), clusterremapper, maxParts, filter, fileinfoforread.getFileAccessInfoBlob());
+          record_def_json = fileinfoforread.getRecordTypeInfoJson();
           if (record_def_json==null)
           {
               throw new UnusableDataDefinitionException("Definiton returned was null");
@@ -268,18 +260,17 @@ public class HpccFile implements Serializable {
       String user, String pword, String targetColumnList, FileFilter filter,
       RemapInfo remap_info, int maxParts, int fileAccessExpirySecs) throws HpccFileException
   {
-	this(fileName, protocol, host, port, user, pword, targetColumnList, filter, remap_info, maxParts);
-	this.fileAccessExpirySecs = fileAccessExpirySecs;
+  this(fileName, protocol, host, port, user, pword, targetColumnList, filter, remap_info, maxParts);
+  this.fileAccessExpirySecs = fileAccessExpirySecs;
   }
   /**
    * The partitions for the file residing on an HPCC cluster
    * @return
    * @throws HpccFileException
    */
-  public HpccPart[] getFileParts() throws HpccFileException {
-    HpccPart[] rslt = new HpccPart[parts.length];
-    for (int i=0; i<parts.length; i++) rslt[i]=parts[i];
-    return rslt;
+  public DataPartition[] getFileParts() throws HpccFileException
+  {
+      return dataParts;
   }
   /**
    * The record definition for a file on an HPCC cluster.
@@ -307,7 +298,7 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException When there are errors reaching the THOR data
    */
   public HpccRDD getRDD(SparkContext sc) throws HpccFileException {
-    return new HpccRDD(sc, this.parts, this.recordDefinition);
+	  return new HpccRDD(sc, this.dataParts, this.recordDefinition);
   }
   /**
    * Make a Spark Dataframe (Dataset<Row>) of THOR data available.
@@ -317,7 +308,7 @@ public class HpccFile implements Serializable {
    */
   public Dataset<Row> getDataframe(SparkSession session) throws HpccFileException{
     RecordDef rd = this.getRecordDefinition();
-    HpccPart[] fp = this.getFileParts();
+    DataPartition[] fp = this.getFileParts();
     JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, rd)).toJavaRDD();
     return session.createDataFrame(rdd, rd.asSchema());
   }
@@ -326,25 +317,11 @@ public class HpccFile implements Serializable {
    * @return true if yes
    */
   public boolean isIndex() { return this.isIndex; }
-  /**
-   * Recurse through the FileDetailInfo structure to get the list of actual files.
-   * @param fd_list an ArrayList object to build up the list of real file
-   * names
-   * @param fileName the file name of interest, it may be a super file and if
-   * so, we recursively call to resolve to a list of actual files
-   * @param hpcc our connection to the wsclient services
-   * @throws Exception thrown by wsclient services when something goes wrong
-   */
-  private static void recurseFDI(ArrayList<DFUFileDetailInfo> fd_list,
-                                 String fileName,
-                                 HPCCWsDFUClient hpcc) throws Exception {
-    DFUFileDetailInfo fd = hpcc.getFileDetails(fileName, "", true, false);
-    if (fd.getIsSuperfile()) {
-      String[] subFileNames = fd.getSubfiles();
-      for (int i=0; i<subFileNames.length; i++) {
-        recurseFDI(fd_list, subFileNames[i], hpcc);
-      }
-    } else fd_list.add(fd);
+
+  private static  DFUFileAccessInfoWrapper fetchReadFileInfo(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception
+  {
+    String uniqueID = "SPARK-HPCC: " + UUID.randomUUID().toString();
+    return hpccClient.getFileAccess(SecAccessType.Read, fileName, clusterName, expirySeconds, uniqueID, true, false, true);
   }
 
   private static String acquireReadFileAccess(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception

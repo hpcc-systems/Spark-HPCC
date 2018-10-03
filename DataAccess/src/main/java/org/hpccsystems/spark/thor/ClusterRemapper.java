@@ -16,7 +16,9 @@
 package org.hpccsystems.spark.thor;
 
 import org.hpccsystems.spark.HpccFileException;
+import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartLocation;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
  * Re-map address information for Clusters that can
@@ -35,20 +37,22 @@ public abstract class ClusterRemapper {
   protected ClusterRemapper(RemapInfo ri) throws HpccFileException{
     this.nodes = ri.getNodes();
   }
+
   /**
-   * The optionally revised primary IP for this part.
+   * The optionally revised array of hosts.
+   * @param hosts information
+   * @return Revised IP address as strings
+   */
+  public abstract String[] reviseIPs(String[] hosts)
+		  throws HpccFileException;
+
+  /**
+   * The optionally revised array of file part copy IPs.
    * @param fpi file part information
    * @return an IP address as a string
    */
-  public abstract String revisePrimaryIP(DFUFilePartInfo fpi)
-                        throws HpccFileException;
-  /**
-   * Thie optionally revised secondary IP or blank if no copy
-   * @param fpi file part information
-   * @return an IP address or blank string if no copy is available
-   */
-  public abstract String reviseSecondaryIP(DFUFilePartInfo fpi)
-                        throws HpccFileException;
+  public abstract String [] reviseIPs(DFUFileCopyWrapper[] dfuFileCopies)
+          throws HpccFileException;
   /**
    * The clear communications port number or zero if clear communication
    * is not accepted
@@ -65,15 +69,14 @@ public abstract class ClusterRemapper {
   /**
    * Factory for making a cluster re-map.
    * @param ri the re-mapping information
-   * @param fpiList a list of the file parts
+   * @param strings a list of file part locations
    * @return a re-mapping object consistent with the provided information
    * @throws HpccFileException
    */
-  public static ClusterRemapper makeMapper(RemapInfo ri,
-      DFUFilePartInfo[] fpiList) throws HpccFileException {
-    ClusterRemapper rslt = (ri.isNullMapper()) ? new NullRemapper(ri)
-        : (ri.isPortAliasing()) ? new PortRemapper(ri)
-            : new AddrRemapper(ri, fpiList);
+
+  public static ClusterRemapper makeMapper(RemapInfo ri, String[] strings) throws HpccFileException
+  {
+    ClusterRemapper rslt = (ri.isNullMapper()) ? new NullRemapper(ri) : (ri.isPortAliasing()) ? new PortRemapper(ri) : new AddrRemapper(ri, strings);
     return rslt;
   }
 }
