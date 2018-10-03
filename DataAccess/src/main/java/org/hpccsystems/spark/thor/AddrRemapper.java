@@ -23,6 +23,7 @@ import java.util.StringTokenizer;
 
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileAccessInfoWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
@@ -32,6 +33,9 @@ import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
  */
 public class AddrRemapper extends ClusterRemapper {
   private HashMap<String, String> ip_tab;
+  private int rowServicePort;
+  private boolean usesSSL;
+
   /**
    * Remapping of the IP addresses for virtual clusters.  Note that there
    * can be more parts than nodes or fewer parts than nodes, though usually
@@ -42,20 +46,21 @@ public class AddrRemapper extends ClusterRemapper {
    * that need to be mapped
    * @throws HpccFileException when something is wrong with the info
    */
-  public AddrRemapper(RemapInfo ri, String[] locations) throws HpccFileException
+  public AddrRemapper(RemapInfo ri, DFUFileAccessInfoWrapper dfufileinfo) throws HpccFileException
   {
       super(ri);
-      if (!ri.isIpAliasing())
-      {
-        throw new IllegalArgumentException("Inappropriate type of re-mapping info");
-      }
 
-      HashSet<String> ip_set = new HashSet<String>(locations.length);
+      rowServicePort = dfufileinfo.getFileAccessPort();
+      usesSSL = dfufileinfo.getFileAccessSSL();
 
-      for ( String location : locations)
+      String [] allavailablelocations = dfufileinfo.getAllFilePartCopyLocations();
+      HashSet<String> ip_set = new HashSet<String>(allavailablelocations.length);
+
+      for ( String location : allavailablelocations)
       {
         ip_set.add(location);
       }
+
       String[] ip_list = ip_set.toArray(new String[0]);
       Arrays.sort(ip_list);
       if (ip_list.length > ri.getNodes())
@@ -99,15 +104,6 @@ public class AddrRemapper extends ClusterRemapper {
       }
   }
 
-  @Override
-  public int reviseClearPort(DFUFilePartInfo fpi) {
-    return DEFAULT_CLEAR;
-  }
-
-  @Override
-  public int reviseSslPort(DFUFilePartInfo fpi) {
-    return DEFAULT_SSL;
-  }
   /**
    * Comparator to re-order the file parts.
    */
@@ -156,5 +152,23 @@ public class AddrRemapper extends ClusterRemapper {
         revisedips[partsindex] = ip_tab.get(dfuFileCopies[partsindex].getCopyHost());
     }
     return revisedips;
+  }
+
+  /* (non-Javadoc)
+  * @see org.hpccsystems.spark.thor.ClusterRemapper#revisePort(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
+  */
+  @Override
+  public int revisePort(DFUFilePartInfo fpi) 
+  {
+	return rowServicePort;
+  }
+
+  /* (non-Javadoc)
+  * @see org.hpccsystems.spark.thor.ClusterRemapper#getUsesSSLConnection(org.hpccsystems.ws.client.platform.DFUFilePartInfo)
+  */
+  @Override
+  public boolean getUsesSSLConnection(DFUFilePartInfo fpi)
+  {
+	return usesSSL;
   }
 }

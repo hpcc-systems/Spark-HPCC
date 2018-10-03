@@ -15,47 +15,43 @@ public class RecordTest {
 
   public static void main(String[] args) throws Exception{
     BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-    System.out.print("Enter protocol: ");
+    System.out.print("Enter EclWatch protocol: ");
     System.out.flush();
-    String protocol = br.readLine();
-    System.out.print("Enter ip: ");
+    String espprotocol = br.readLine();
+    System.out.print("Enter EclWatch ip: ");
     System.out.flush();
-    String esp_ip = br.readLine();
-    System.out.print("Enter port: ");
+    String espip = br.readLine();
+    System.out.print("Enter EclWatch port: ");
     System.out.flush();
-    String port = br.readLine();
-    System.out.print("Enter file name: ");
+    String espport = br.readLine();
+    System.out.print("Enter HPCC file name: ");
     System.out.flush();
     String testName = br.readLine();
-    System.out.print("User id: ");
+    System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
     System.out.flush();
-    String user = br.readLine();
-    System.out.print("pass word: ");
+    String fileclustername = br.readLine();
+    System.out.print("Enter EclWatch User ID: ");
     System.out.flush();
-    String pword = br.readLine();
-    System.out.print("Field list or empty: ");
+    String espuser = br.readLine();
+    System.out.print("Enter EclWatch Password: ");
     System.out.flush();
-    String fieldList = br.readLine();
-    System.out.print("File filter expression or empty: ");
+    String esppassword = br.readLine();
+    System.out.print("Enter Project Field list or empty: ");
+    System.out.flush();
+    String projectfildlist = br.readLine();
+    System.out.print("Enter Record filter expression or empty: ");
     System.out.flush();
     String filterExpression = br.readLine();
-    System.out.print("Number of nodes for remap or empty: ");
+    System.out.print("Enter Number of nodes for remap or empty: ");
     System.out.flush();
     String nodes = br.readLine();
-    System.out.print("Base IP or empty: ");
+    System.out.print("Enter Base IP for remap or empty: ");
     System.out.flush();
     String base_ip = br.readLine();
 
-    HpccFile hpccFile;
-    if (nodes.equals("") || base_ip.equals(""))
-    {
-      hpccFile = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList,new FileFilter(filterExpression), 0);
-    }
-    else
-    {
-      RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpccFile = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, new FileFilter(filterExpression), ri, 0);
-    }
+    RemapInfo ri = new RemapInfo(nodes, base_ip);
+    HpccFile hpccFile = new HpccFile(testName, espprotocol, espip, espport, espuser, esppassword, projectfildlist, new FileFilter(filterExpression), ri, 0, fileclustername);
+
     System.out.println("Getting file parts");
     DataPartition[] parts = hpccFile.getFileParts();
     for (int i=0; i<parts.length; i++) {
@@ -89,7 +85,7 @@ public class RecordTest {
         sb.append(" to ");
         sb.append(parts[i].getCopyIP(0));// we might not need this ip...
         sb.append(":");
-        sb.append(parts[i].getClearPort());
+        sb.append(parts[i].getPort());
         sb.append(" with error ");
         sb.append(e.getMessage());
         System.out.println(sb.toString());

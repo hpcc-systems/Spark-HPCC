@@ -33,8 +33,8 @@ public class DataPartition implements Partition, Serializable {
   private String file_name;
   private int this_part;
   private int num_parts;
-  private int clearPort;
-  private int sslPort;
+  private int rowservicePort;
+  private boolean useSSL;
   private FileFilter fileFilter;
   private String fileAccessBlob;
   /**
@@ -46,14 +46,14 @@ public class DataPartition implements Partition, Serializable {
    * @param sslport port number of ssl communications
    * @param filter the file filter object
    */
-  private DataPartition( String[] copylocations, int this_part, int num_parts, int clearport, int sslport, FileFilter filter, String fileAccessBlob) {
+  private DataPartition( String[] copylocations, int this_part, int num_parts, int clearport, boolean sslport, FileFilter filter, String fileAccessBlob) {
     //String f_str = dir + "/" + mask;
     //this.file_name = f_str.replace("$P$", Integer.toString(this_part))
     //                      .replace("$N$", Integer.toString(num_parts));
     this.this_part = this_part;
     this.num_parts = num_parts;
-    this.clearPort = clearport;
-    this.sslPort = sslport;
+    this.rowservicePort = clearport;
+    this.useSSL = sslport;
     this.fileFilter = filter;
     this.fileAccessBlob = fileAccessBlob;
     this.copyLocations = copylocations;
@@ -87,12 +87,12 @@ public class DataPartition implements Partition, Serializable {
    * Port used for communication in clear.
    * @return port number
    */
-  public int getClearPort() { return clearPort; }
+  public int getPort() { return rowservicePort; }
   /**
    * Port used for SSL communication
    * @return port
    */
-  public int getSslPort() { return sslPort; }
+  public boolean getUseSsl() { return useSSL; }
   /**
    * File name
    * @return name
@@ -128,7 +128,7 @@ public class DataPartition implements Partition, Serializable {
         sb.append(this.getCopyIP(copyindex));
     }
     sb.append("} :");
-    sb.append(this.getClearPort());
+    sb.append(this.getPort());
     return sb.toString();
   }
 
@@ -166,15 +166,14 @@ public class DataPartition implements Partition, Serializable {
 
         try
         {
-
             for (int i=0; i<dfuparts.length; i++)
             {
                 DataPartition new_dp = new DataPartition(
                                             clusterremapper.reviseIPs(dfuparts[i].getCopies()),
                                             dfuparts[i].getPartIndex(),
                                             dfuparts.length,
-                                            clusterremapper.reviseClearPort(null),
-                                            clusterremapper.reviseSslPort(null),
+                                            clusterremapper.revisePort(null),
+                                            clusterremapper.getUsesSSLConnection(null),
                                             filter,
                                             fileAccessBlob);
                 rslt[i] = new_dp;
