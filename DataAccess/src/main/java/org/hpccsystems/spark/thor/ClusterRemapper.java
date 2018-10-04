@@ -18,6 +18,7 @@ package org.hpccsystems.spark.thor;
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.ws.client.gen.wsdfu.v1_39.DFUPartLocation;
 import org.hpccsystems.ws.client.platform.DFUFilePartInfo;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileAccessInfoWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
 
 /**
@@ -28,8 +29,10 @@ import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileCopyWrapper;
  */
 public abstract class ClusterRemapper {
   protected int nodes;
-  protected final static int DEFAULT_CLEAR = 7100;
-  protected final static int DEFAULT_SSL = 7700;
+  protected final static int DEFAULT_LEGACY_CLEAR_PORT = 7100;
+  protected final static int DEFAULT_LEGACY_SSL_PORT = 7700;
+  protected final static int DEFAULT_ROWSERVICE_PORT = 7601;
+  protected final static boolean DEFAULT_ROWSERVICE_USES_SSL = false;
 
   /**
    * Constructor for common information.
@@ -54,29 +57,28 @@ public abstract class ClusterRemapper {
   public abstract String [] reviseIPs(DFUFileCopyWrapper[] dfuFileCopies)
           throws HpccFileException;
   /**
-   * The clear communications port number or zero if clear communication
-   * is not accepted
-   * @param fpi file part information
-   * @return the port number
-   */
-  public abstract int reviseClearPort(DFUFilePartInfo fpi);
-  /**
-   * The SSL communications port number of zero if SSL is not supported
+   * The communications port number
    * @param fpi the file part information
    * @return the port number
    */
-  public abstract int reviseSslPort(DFUFilePartInfo fpi);
+  public abstract int revisePort(DFUFilePartInfo fpi);
+  /**
+   * Indicates if the target rowservice communicates over SSL
+   * @param fpi the file part information
+   * @return the port number
+   */
+  public abstract boolean getUsesSSLConnection(DFUFilePartInfo fpi);
   /**
    * Factory for making a cluster re-map.
    * @param ri the re-mapping information
-   * @param strings a list of file part locations
+   * @param fileaccessinfo a list of file part locations
    * @return a re-mapping object consistent with the provided information
    * @throws HpccFileException
    */
 
-  public static ClusterRemapper makeMapper(RemapInfo ri, String[] strings) throws HpccFileException
+  public static ClusterRemapper makeMapper(RemapInfo ri, DFUFileAccessInfoWrapper fileaccessinfo) throws HpccFileException
   {
-    ClusterRemapper rslt = (ri.isNullMapper()) ? new NullRemapper(ri) : (ri.isPortAliasing()) ? new PortRemapper(ri) : new AddrRemapper(ri, strings);
-    return rslt;
+	return ri.isNullMapper() ? new NullRemapper(ri, fileaccessinfo) : new AddrRemapper(ri, fileaccessinfo);
   }
+  
 }
