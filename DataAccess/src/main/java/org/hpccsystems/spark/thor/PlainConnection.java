@@ -20,6 +20,10 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.Charset;
 
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+
 import org.apache.log4j.Logger;
 import org.hpccsystems.spark.HpccFileException;
 import org.hpccsystems.spark.RecordDef;
@@ -39,7 +43,8 @@ public class PlainConnection {
   private RecordDef recordDefinition;
   private java.io.DataInputStream dis;
   private java.io.DataOutputStream dos;
-  private java.net.Socket sock;
+
+  private Socket  sock;
   private int currentFilePartCopyIndex;
   private int DEFAULT_CONNECT_TIMEOUT_MILIS = 1000;
 
@@ -73,6 +78,12 @@ public class PlainConnection {
       currentFilePartCopyIndex++;
       return true;
   }
+
+  /**
+   * The SSL usage on the DAFILESRV side
+   * @return use ssl flag
+   */
+  public boolean getUseSSL() { return this.dataPart.getUseSsl(); }
 
   /**
    * The primary IP for the file part
@@ -229,8 +240,24 @@ public class PlainConnection {
 
             try
             {
-              sock = new Socket();
-              sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
+                if (getUseSSL())
+                {
+                    SSLSocketFactory ssf = (SSLSocketFactory) SSLSocketFactory.getDefault();
+                    sock = (SSLSocket)ssf.createSocket();
+                    sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
+
+                    log.debug("Attempting SSL handshake...");
+                    ((SSLSocket) sock).startHandshake();
+                    log.debug("SSL handshake successful...");
+                    log.debug("   Remote address = " + sock.getInetAddress().toString() + " Remote port = " + sock.getPort());
+                }
+                else
+                {
+                    SocketFactory sf = SocketFactory.getDefault();
+                    sock = sf.createSocket();
+                    sock.connect(new InetSocketAddress(this.getIP(), this.dataPart.getPort()), DEFAULT_CONNECT_TIMEOUT_MILIS );
+                }
+                log.debug("Connected: Remote address = " + sock.getInetAddress().toString() + " Remote port = " + sock.getPort());
             }
             catch (java.net.UnknownHostException e)
             {
@@ -270,11 +297,12 @@ public class PlainConnection {
             log.error("Could not reach file part: '" + dataPart.getThisPart() + "' copy: '" + (currentFilePartCopyIndex+1) + "' on IP: '" + getIP());
             log.error(e.getMessage());
 
-            if (!setNextFilePartCopy())
+             if (!setNextFilePartCopy())
                 throw new HpccFileException("Unsuccessfuly attempted to connect to all file part copies", e); // this should be a multi exception
         }
     }
   }
+
   /**
    * Creates a request string using the record definition, filename,
    * and current state of the file transfer.
