@@ -106,7 +106,7 @@ public class HpccFileTest {
       boolean wantData = true;
       int block_limit = 4;
       while (wantData) {
-        byte[] block = pc.readBlock();
+        byte[] block = pc.readBlock(null);
         StringBuilder sb = new StringBuilder();
         sb.append("Handle ");
         sb.append(pc.getHandle());

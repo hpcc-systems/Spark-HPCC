@@ -38,7 +38,7 @@ public class BinaryRecordReader implements IRecordReader {
   private RecordDef recDef;
   private int part;
   private PlainConnection pc;
-  private byte[] curr;
+  private byte[] buffer;
   private int curr_pos;
   private long pos;
   private boolean active;
@@ -72,7 +72,7 @@ public class BinaryRecordReader implements IRecordReader {
   public BinaryRecordReader(DataPartition dp, RecordDef rd) {
     this.recDef = rd;
     this.pc = new PlainConnection(dp, rd);
-    this.curr = new byte[0];
+    this.buffer = null; 
     this.curr_pos = 0;
     this.active = false;
     this.pos = 0;
@@ -87,12 +87,12 @@ public class BinaryRecordReader implements IRecordReader {
     if (!this.active) {
       this.curr_pos = 0;
       this.active = true;
-      this.curr = pc.readBlock();
+      this.buffer = pc.readBlock(this.buffer);
     }
-    if (this.curr_pos < this.curr.length) return true;
+    if (this.curr_pos < this.buffer.length) return true;
     if (pc.isClosed()) return false;
-    this.curr = pc.readBlock();
-    if (curr.length == 0) return false;
+    this.buffer = pc.readBlock(this.buffer);
+    if (this.buffer.length == 0) return false;
     this.curr_pos = 0;
     return true;
   }
@@ -107,8 +107,8 @@ public class BinaryRecordReader implements IRecordReader {
     Row rslt = null;
     try {
       FieldDef fd = this.recDef.getRootDef();
-      ParsedFieldResult result = parseField(this.curr, this.curr_pos, fd, this.defaultLE);
 
+      ParsedFieldResult result = parseField(this.buffer, this.curr_pos, fd, this.defaultLE);
       if (result.fieldValue == null || result.bytesConsumed == 0) {
         throw new HpccFileException("RecordContent not found, or invalid record structure. Check logs for more information.");
       }

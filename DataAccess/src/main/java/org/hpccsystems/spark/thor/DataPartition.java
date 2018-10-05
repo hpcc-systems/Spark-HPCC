@@ -65,6 +65,11 @@ public class DataPartition implements Partition, Serializable {
    */
   public String getFileAccessBlob() { return this.fileAccessBlob; }
 
+  /**
+   * File part copy locations
+   * @return copy locations
+   */
+  public String[] getCopyLocations() { return this.copyLocations; }
 
   /**
    * Location of the ith copy of this file part
