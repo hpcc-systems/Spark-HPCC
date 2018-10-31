@@ -10,6 +10,7 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Row;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.ws.client.utils.Connection;
 
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
@@ -42,45 +43,68 @@ public class RDDTest {
     SparkContext sc = new SparkContext(conf);
     System.out.println("Spark context available");
     System.out.println("Now need HPCC file information");
-    System.out.print("Enter protocol: ");
+    System.out.print("Enter EclWatch protocol: ");
     System.out.flush();
     String protocol = br.readLine();
-    System.out.print("Enter ip: ");
+    System.out.print("Enter EclWatch ip: ");
     System.out.flush();
     String esp_ip = br.readLine();
-    System.out.print("Enter port: ");
+    System.out.print("Enter EclWatch port: ");
     System.out.flush();
     String port = br.readLine();
-    System.out.print("Enter file name: ");
+
+    Connection espcon = new Connection(protocol, esp_ip, port);
+
+    System.out.print("Enter HPCC file name: ");
     System.out.flush();
     String testName = br.readLine();
-    System.out.print("User id: ");
+    System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
     System.out.flush();
-    String user = br.readLine();
-    System.out.print("pass word: ");
+    String fileclustername = br.readLine();
+    System.out.print("Enter EclWatch User ID: ");
     System.out.flush();
-    String pword = br.readLine();
-    System.out.print("Field list or empty: ");
+
+    espcon.setUserName(br.readLine());
+
+    System.out.print("Enter EclWatch Password: ");
+    System.out.flush();
+
+    espcon.setPassword(br.readLine());
+
+    HpccFile hpccFile = new HpccFile(testName, espcon);
+
+    if (fileclustername.length() != 0)
+        hpccFile.setTargetfilecluster(fileclustername);
+
+    System.out.print("Enter Project Field list or empty: ");
     System.out.flush();
     String fieldList = br.readLine();
-    System.out.print("Number of nodes for remap or empty: ");
+    if (fieldList.length() != 0)
+        hpccFile.setProjectList(fieldList);
+
+    System.out.print("Enter Record filter expression (or empty): ");
+    System.out.flush();
+    String filterExpression = br.readLine();
+
+    if (filterExpression.length() != 0)
+        hpccFile.setFilter(filterExpression);
+
+    System.out.print("Number of nodes for remap (or empty): ");
     System.out.flush();
     String nodes = br.readLine();
-    System.out.print("Base IP or empty: ");
-    System.out.flush();
-    String base_ip = br.readLine();
-    HpccFile hpcc;
-    if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName,protocol,esp_ip,port,user,pword,fieldList,0);
-    } else {
-      RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword,
-          fieldList, ri, 0);
+    String base_ip ="";
+    if (nodes.length() != 0)
+    {
+      System.out.print("Base IP: ");
+      System.out.flush();
+      base_ip = br.readLine();
+      hpccFile.setClusterRemapInfo(new RemapInfo(Integer.parseInt(nodes), base_ip));
     }
+
     System.out.println("Getting file parts");
-    DataPartition[] parts = hpcc.getFileParts();
+    DataPartition[] parts = hpccFile.getFileParts();
     System.out.println("Getting record definition");
-    RecordDef rd = hpcc.getRecordDefinition();
+    RecordDef rd = hpccFile.getRecordDefinition();
     System.out.println(rd.toString());
     System.out.println("Creating RDD");
     HpccRDD myRDD = new HpccRDD(sc, parts, rd);

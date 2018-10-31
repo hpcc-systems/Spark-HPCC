@@ -80,5 +80,5 @@ public abstract class ClusterRemapper {
   {
 	return ri.isNullMapper() ? new NullRemapper(ri, fileaccessinfo) : new AddrRemapper(ri, fileaccessinfo);
   }
-  
+
 }

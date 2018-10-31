@@ -43,6 +43,15 @@ public class ColumnPruner implements Serializable {
   private final static long serialVersionUID = 1L;
   private String fieldListString;
   private transient TargetColumn targetContentRoot;
+
+  /**
+   * @return Project list in string format
+  */
+  public String getFieldListString()
+  {
+    return fieldListString;
+  }
+
   /**
    * Contruct a pruner to remove fields from the output definition of a remote
    * read definition string.
