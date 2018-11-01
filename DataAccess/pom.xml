@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.hpccsystems</groupId>
     <artifactId>spark-hpcc</artifactId>
-    <version>7.0.0-rc5</version>
+    <version>7.0.0-rc6</version>
     <name>spark-hpcc</name>
     <description>RDD for reading files residing in an HPCC cluster environment</description>
     <url>https://hpccsystems.com</url>
@@ -148,7 +148,7 @@
         <dependency>
             <groupId>org.hpccsystems</groupId>
             <artifactId>wsclient</artifactId>
-            <version>7.0.0-rc5</version>
+            <version>7.0.0-rc6</version>
         </dependency>
     </dependencies>
     <developers>
