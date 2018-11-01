@@ -8,8 +8,8 @@ import org.apache.spark.sql.Row;
 import org.hpccsystems.spark.thor.BinaryRecordReader;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.FieldDef;
-import org.hpccsystems.spark.thor.FileFilter;
 import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.ws.client.utils.Connection;
 
 public class RecordTest {
 
@@ -26,31 +26,52 @@ public class RecordTest {
     String espport = br.readLine();
     System.out.print("Enter HPCC file name: ");
     System.out.flush();
+
+    Connection espcon = new Connection(espprotocol, espip, espport);
+
     String testName = br.readLine();
     System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
     System.out.flush();
     String fileclustername = br.readLine();
     System.out.print("Enter EclWatch User ID: ");
     System.out.flush();
-    String espuser = br.readLine();
+
+    espcon.setUserName(br.readLine());
+
     System.out.print("Enter EclWatch Password: ");
     System.out.flush();
-    String esppassword = br.readLine();
+
+    espcon.setPassword(br.readLine());
+
+    HpccFile hpccFile = new HpccFile(testName, espcon);
+
+    if (fileclustername.length() != 0)
+        hpccFile.setTargetfilecluster(fileclustername);
+
     System.out.print("Enter Project Field list or empty: ");
     System.out.flush();
     String projectfildlist = br.readLine();
+    if (projectfildlist.length() != 0)
+        hpccFile.setProjectList(projectfildlist);
+
     System.out.print("Enter Record filter expression or empty: ");
     System.out.flush();
     String filterExpression = br.readLine();
+
+    if (filterExpression.length() != 0)
+        hpccFile.setFilter(filterExpression);
+
     System.out.print("Enter Number of nodes for remap or empty: ");
     System.out.flush();
     String nodes = br.readLine();
-    System.out.print("Enter Base IP for remap or empty: ");
-    System.out.flush();
-    String base_ip = br.readLine();
-
-    RemapInfo ri = new RemapInfo(nodes, base_ip);
-    HpccFile hpccFile = new HpccFile(testName, espprotocol, espip, espport, espuser, esppassword, projectfildlist, new FileFilter(filterExpression), ri, 0, fileclustername);
+    String base_ip = "";
+    if (nodes.length() != 0)
+    {
+        System.out.print("Enter Base IP for remap: ");
+        System.out.flush();
+        base_ip = br.readLine();
+        hpccFile.setClusterRemapInfo(new RemapInfo(Integer.parseInt(nodes), base_ip));
+    }
 
     System.out.println("Getting file parts");
     DataPartition[] parts = hpccFile.getFileParts();
