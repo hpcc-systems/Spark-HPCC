@@ -43,8 +43,7 @@ public class HpccFileTest {
     System.out.flush();
     String testName = br.readLine();
 
-    //HpccFile hpcc = new HpccFile(testName, espcon);
-    HpccFile hpcc = new HpccFile(testName, "http://localhost:8010/xzy?sasfd&asdfa=1", "", "");
+    HpccFile hpcc = new HpccFile(testName, espcon);
 
     System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
     System.out.flush();
