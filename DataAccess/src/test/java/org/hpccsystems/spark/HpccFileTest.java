@@ -4,13 +4,13 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Iterator;
 
-import org.hpccsystems.spark.thor.DataPartition;
-import org.hpccsystems.spark.thor.FieldDef;
-import org.hpccsystems.spark.thor.FileFilter;
-import org.hpccsystems.spark.thor.NullRemapper;
-import org.hpccsystems.spark.thor.PlainConnection;
-import org.hpccsystems.spark.thor.RemapInfo;
 import org.hpccsystems.ws.client.utils.Connection;
+import org.hpccsystems.commons.cluster.RemapInfo;
+import org.hpccsystems.commons.ecl.FieldDef;
+import org.hpccsystems.dafilesrv.client.DataPartition;
+import org.hpccsystems.dafilesrv.client.HPCCFile;
+import org.hpccsystems.dafilesrv.client.PlainConnection;
+import org.hpccsystems.dafilesrv.spark.client.RecordDef4Spark;
 
 /**
  * Test the access for information on a distributed file on a THOR cluster.
@@ -43,8 +43,7 @@ public class HpccFileTest {
     System.out.flush();
     String testName = br.readLine();
 
-    //HpccFile hpcc = new HpccFile(testName, espcon);
-    HpccFile hpcc = new HpccFile(testName, "http://localhost:8010/xzy?sasfd&asdfa=1", "", "");
+    HPCCFile hpcc = new HPCCFile(testName, espcon);
 
     System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
     System.out.flush();
@@ -92,7 +91,7 @@ public class HpccFileTest {
     System.out.println("Getting JSON definition");
     System.out.println(hpcc.getRecordDefinition().getJsonInputDef());
     System.out.println("Getting record definition");
-    RecordDef rd = hpcc.getRecordDefinition();
+    RecordDef4Spark rd = (RecordDef4Spark)hpcc.getRecordDefinition();
     FieldDef root_def = rd.getRootDef();
     Iterator<FieldDef> iter = root_def.getDefinitions();
     while (iter.hasNext()) {

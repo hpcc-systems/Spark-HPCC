@@ -8,8 +8,13 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.hpccsystems.spark.thor.DataPartition;
-import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.ws.client.utils.Connection;
+
+import org.hpccsystems.commons.cluster.RemapInfo;
+import org.hpccsystems.commons.ecl.RecordDef;
+import org.hpccsystems.dafilesrv.client.DataPartition;
+import org.hpccsystems.dafilesrv.client.HPCCFile;
+import org.hpccsystems.dafilesrv.spark.client.HpccFile4Spark;
 import org.hpccsystems.ws.client.utils.Connection;
 
 import scala.collection.JavaConverters;
@@ -64,7 +69,7 @@ public class DataframeTest {
     System.out.flush();
     espcon.setPassword(br.readLine());
 
-    HpccFile hpcc = new HpccFile(testName, espcon);
+    HpccFile4Spark hpcc = new HpccFile4Spark(testName, espcon);
 
     System.out.print("Project Field list (or empty): ");
     System.out.flush();

@@ -5,10 +5,13 @@ import java.io.InputStreamReader;
 import java.util.Iterator;
 
 import org.apache.spark.sql.Row;
-import org.hpccsystems.spark.thor.BinaryRecordReader;
-import org.hpccsystems.spark.thor.DataPartition;
-import org.hpccsystems.spark.thor.FieldDef;
-import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.commons.cluster.RemapInfo;
+import org.hpccsystems.commons.ecl.FieldDef;
+import org.hpccsystems.commons.ecl.RecordDef;
+import org.hpccsystems.dafilesrv.client.BinaryRecordReader;
+import org.hpccsystems.dafilesrv.client.DataPartition;
+import org.hpccsystems.dafilesrv.client.HPCCFile;
+import org.hpccsystems.dafilesrv.spark.client.BinaryRecordReader4Spark;
 import org.hpccsystems.ws.client.utils.Connection;
 
 public class RecordTest {
@@ -40,10 +43,9 @@ public class RecordTest {
 
     System.out.print("Enter EclWatch Password: ");
     System.out.flush();
-
     espcon.setPassword(br.readLine());
 
-    HpccFile hpccFile = new HpccFile(testName, espcon);
+    HPCCFile hpccFile = new HPCCFile(testName, espcon);
 
     if (fileclustername.length() != 0)
         hpccFile.setTargetfilecluster(fileclustername);
@@ -91,9 +93,9 @@ public class RecordTest {
       System.out.println("Reading records from part index " + i);
       try
       {
-        BinaryRecordReader brr = new BinaryRecordReader( parts[i], rd);
+        BinaryRecordReader4Spark brr = new BinaryRecordReader4Spark( parts[i], rd);
         while (brr.hasNext()) {
-          Row rec = brr.getNext();
+          Row rec = brr.getNextRow();
           System.out.println(rec.toString());
         }
         System.out.println("Completed file part " +  parts[i].getThisPart());

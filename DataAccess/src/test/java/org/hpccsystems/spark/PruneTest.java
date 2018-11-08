@@ -18,8 +18,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 
-import org.hpccsystems.spark.thor.DefEntryRoot;
-import org.hpccsystems.spark.thor.DefToken;
+import org.hpccsystems.commons.ecl.ColumnPruner;
+import org.hpccsystems.commons.ecl.TargetColumn;
+import org.hpccsystems.dafilesrv.filedef.json.DefEntryRoot;
+import org.hpccsystems.dafilesrv.filedef.json.DefToken;
 import org.hpccsystems.ws.client.HPCCWsDFUClient;
 import org.hpccsystems.ws.client.platform.DFUFileDetailInfo;
 import org.hpccsystems.ws.client.utils.Connection;

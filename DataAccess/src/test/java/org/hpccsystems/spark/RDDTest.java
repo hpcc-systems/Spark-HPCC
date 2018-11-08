@@ -8,8 +8,13 @@ import java.util.Arrays;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Row;
-import org.hpccsystems.spark.thor.DataPartition;
-import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.commons.cluster.RemapInfo;
+import org.hpccsystems.commons.ecl.RecordDef;
+import org.hpccsystems.dafilesrv.client.DataPartition;
+import org.hpccsystems.dafilesrv.client.HPCCFile;
+import org.hpccsystems.dafilesrv.spark.client.HpccFile4Spark;
+import org.hpccsystems.dafilesrv.spark.client.HpccRDD;
+import org.hpccsystems.dafilesrv.spark.client.RecordDef4Spark;
 import org.hpccsystems.ws.client.utils.Connection;
 
 import scala.collection.JavaConverters;
@@ -63,7 +68,6 @@ public class RDDTest {
     String fileclustername = br.readLine();
     System.out.print("Enter EclWatch User ID: ");
     System.out.flush();
-
     espcon.setUserName(br.readLine());
 
     System.out.print("Enter EclWatch Password: ");
@@ -71,7 +75,7 @@ public class RDDTest {
 
     espcon.setPassword(br.readLine());
 
-    HpccFile hpccFile = new HpccFile(testName, espcon);
+    HpccFile4Spark hpccFile = new HpccFile4Spark(testName, espcon);
 
     if (fileclustername.length() != 0)
         hpccFile.setTargetfilecluster(fileclustername);
@@ -104,7 +108,7 @@ public class RDDTest {
     System.out.println("Getting file parts");
     DataPartition[] parts = hpccFile.getFileParts();
     System.out.println("Getting record definition");
-    RecordDef rd = hpccFile.getRecordDefinition();
+    RecordDef4Spark rd = hpccFile.getRecordDefinition();
     System.out.println(rd.toString());
     System.out.println("Creating RDD");
     HpccRDD myRDD = new HpccRDD(sc, parts, rd);
