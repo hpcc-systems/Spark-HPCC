@@ -65,6 +65,11 @@ public class HpccFileWriter implements Serializable {
         EvaluatePython.registerPicklers();
     }
 
+    public HpccFileWriter(Connection espconninfo) throws HpccFileException
+    {
+        this.dfuClient = HPCCWsDFUClient.get(espconninfo);
+    }
+
     /**
     * HpccFileWriter Constructor
     * Attempts to open a connection to the specified HPCC cluster and validates the user.

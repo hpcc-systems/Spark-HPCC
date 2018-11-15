@@ -4,13 +4,13 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 
-//import scala.collection.mutable.ArraySeq;
 import org.apache.spark.SparkConf;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.hpccsystems.spark.thor.DataPartition;
 import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.ws.client.utils.Connection;
 
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
@@ -51,31 +51,39 @@ public class DataframeTest {
     System.out.print("Enter port: ");
     System.out.flush();
     String port = br.readLine();
+
+    Connection espcon = new Connection(protocol, esp_ip, port);
+
     System.out.print("Enter file name: ");
     System.out.flush();
     String testName = br.readLine();
     System.out.print("User id: ");
     System.out.flush();
-    String user = br.readLine();
-    System.out.print("pass word: ");
+    espcon.setUserName(br.readLine());
+    System.out.print("password: ");
     System.out.flush();
-    String pword = br.readLine();
-    System.out.print("Field list or empty: ");
+    espcon.setPassword(br.readLine());
+
+    HpccFile hpcc = new HpccFile(testName, espcon);
+
+    System.out.print("Project Field list (or empty): ");
     System.out.flush();
     String fieldList = br.readLine();
-    System.out.print("Number of nodes for remap or empty: ");
+    if (fieldList.length() != 0)
+        hpcc.setProjectList(fieldList);
+
+    System.out.print("Number of nodes for remap (or empty): ");
     System.out.flush();
     String nodes = br.readLine();
-    System.out.print("Base IP or empty: ");
-    System.out.flush();
-    String base_ip = br.readLine();
-    HpccFile hpcc;
-    if (nodes.equals("") || base_ip.equals("")) {
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, 0);
-    } else {
-      RemapInfo ri = new RemapInfo(Integer.parseInt(nodes), base_ip);
-      hpcc = new HpccFile(testName, protocol, esp_ip, port, user, pword, fieldList, ri, 0);
+    if (nodes.length() != 0)
+    {
+      System.out.print("Base IP or empty: ");
+      System.out.flush();
+      String base_ip = br.readLine();
+
+      hpcc.setClusterRemapInfo(new RemapInfo(Integer.parseInt(nodes), base_ip));
     }
+
     System.out.println("Getting file parts");
     DataPartition[] parts = hpcc.getFileParts();
     for (DataPartition p : parts) System.out.println(p.toString());
