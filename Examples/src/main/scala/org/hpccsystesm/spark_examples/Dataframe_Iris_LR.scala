@@ -29,11 +29,16 @@ object Dataframe_Iris_LR {
     val pword = StdIn.readLine("password: ")
     val nodes = StdIn.readLine("nodes: ")
     val base_ip = StdIn.readLine("base ip: ")
-    val hpcc = if (nodes.equals("") || base_ip.equals(""))
-      new HpccFile(hpcc_file, hpcc_protocol, hpcc_ip, hpcc_port, user, pword)
-    else {val ri = new RemapInfo(Integer.parseInt(nodes), base_ip)
-      new HpccFile(hpcc_file, hpcc_protocol, hpcc_ip, hpcc_port, user, pword, ri)
-    }
+
+    val espconn = new Connection(hpcc_protocol, hpcc_ip, hpcc_port);
+    espconn.setUserName(user);
+    espconn.setPassword(pword);
+
+    val hpcc = new HpccFile(hpcc_file, espconn);
+
+    if (!nodes.equals("") && !base_ip.equals(""))
+       hpcc.setClusterRemapInfo(new RemapInfo(Integer.parseInt(nodes), base_ip));
+
     val my_df = hpcc.getDataframe(spark)
     val assembler = new VectorAssembler()
     assembler.setInputCols(Array("petal_length","petal_width", "sepal_length", "sepal_width"))

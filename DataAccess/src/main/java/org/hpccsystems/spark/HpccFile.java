@@ -234,7 +234,7 @@ public class HpccFile implements Serializable {
 	  catch (UnusableDataDefinitionException e)
 	  {
 		  log.error("Encountered invalid record definition: '" + originalRecDefInJSON + "'");
-	      throw new HpccFileException("Bad definition", e);
+	      throw new HpccFileException("Encountered invalid record definition", e);
 	  }
 	  catch (Exception e)
 	  {
@@ -261,8 +261,12 @@ public class HpccFile implements Serializable {
    * @return
    * @throws HpccFileException
    */
-  public RecordDef getRecordDefinition() throws HpccFileException {
-    return recordDefinition;
+  public RecordDef getRecordDefinition() throws HpccFileException
+  {
+      if (dataParts == null)
+          createDataParts();
+
+      return recordDefinition;
   }
   /**
    * Make a Spark Resilient Distributed Dataset (RDD) that provides access
@@ -282,7 +286,7 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException When there are errors reaching the THOR data
    */
   public HpccRDD getRDD(SparkContext sc) throws HpccFileException {
-	  return new HpccRDD(sc, getFileParts(), this.recordDefinition);
+	  return new HpccRDD(sc, getFileParts(), getRecordDefinition());
   }
   /**
    * Make a Spark Dataframe (Dataset<Row>) of THOR data available.
@@ -291,10 +295,9 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException when htere are errors reaching the THOR data.
    */
   public Dataset<Row> getDataframe(SparkSession session) throws HpccFileException{
-    RecordDef rd = this.getRecordDefinition();
-    DataPartition[] fp = this.getFileParts();
-    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, rd)).toJavaRDD();
-    return session.createDataFrame(rdd, rd.asSchema());
+    DataPartition[] fp = getFileParts();
+    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, getRecordDefinition())).toJavaRDD();
+    return session.createDataFrame(rdd, getRecordDefinition().asSchema());
   }
   /**
    * Is this an index?
