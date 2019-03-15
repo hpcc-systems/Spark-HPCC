@@ -8,8 +8,9 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.hpccsystems.spark.thor.DataPartition;
-import org.hpccsystems.spark.thor.RemapInfo;
+import org.hpccsystems.commons.ecl.FieldDef;
+import org.hpccsystems.dfs.cluster.RemapInfo;
+import org.hpccsystems.dfs.client.DataPartition;
 import org.hpccsystems.ws.client.utils.Connection;
 
 import scala.collection.JavaConverters;
@@ -88,7 +89,7 @@ public class DataframeTest {
     DataPartition[] parts = hpcc.getFileParts();
     for (DataPartition p : parts) System.out.println(p.toString());
     System.out.println("Getting record definition");
-    RecordDef rd = hpcc.getRecordDefinition();
+    FieldDef rd = hpcc.getRecordDefinition();
     System.out.println(rd.toString());
     System.out.println("Getting Dataframe");
     Dataset<Row> my_df = hpcc.getDataframe(session);
