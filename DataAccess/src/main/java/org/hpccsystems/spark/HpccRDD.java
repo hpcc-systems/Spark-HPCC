@@ -17,6 +17,7 @@ package org.hpccsystems.spark;
 
 import java.io.Serializable;
 import java.util.Iterator;
+
 import java.util.Arrays;
 
 import org.apache.spark.Dependency;
@@ -31,7 +32,10 @@ import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
-import org.hpccsystems.spark.thor.DataPartition;
+
+import org.hpccsystems.dfs.client.DataPartition;
+import org.hpccsystems.dfs.client.HpccRemoteFileReader;
+import org.hpccsystems.commons.ecl.FieldDef;
 
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
@@ -49,20 +53,36 @@ public class HpccRDD extends RDD<Row> implements Serializable {
   private static final ClassTag<Row> CT_RECORD
                           = ClassTag$.MODULE$.apply(Row.class);
   //
-  private DataPartition[] parts;
-  private RecordDef def;
+  private InternalPartition[] parts;
+  private FieldDef def;
+
+  private class InternalPartition implements Partition
+  {
+    private static final long serialVersionUID = 1L;
+
+    public DataPartition partition;
+
+    public int hashCode() {
+        return this.index();
+    }
+
+    public int index() {
+        return partition.index();
+    }
+  }
 
   /**
    * @param sc
    * @param dataParts
    * @param recordDefinition
   */
-  public HpccRDD(SparkContext sc, DataPartition[] dataParts, RecordDef recordDefinition)
+  public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef recordDefinition)
   {
 	  super(sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
-	  this.parts = new DataPartition[dataParts.length];
+	  this.parts = new InternalPartition[dataParts.length];
 	  for (int i=0; i<dataParts.length; i++) {
-	    this.parts[i] = dataParts[i];
+	    this.parts[i] = new InternalPartition();
+	    this.parts[i].partition = dataParts[i];
 	  }
 	  this.def = recordDefinition;
   }
@@ -83,7 +103,12 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    */
   public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames)
     throws IllegalArgumentException {
-    StructType schema = this.def.asSchema();
+    StructType schema = null;
+    try {
+      schema = SparkSchemaTranslator.toSparkSchema(this.def);
+    } catch(Exception e) {
+      throw new IllegalArgumentException(e.getMessage());
+    }
 
     // Precompute indices for the requested fields
     // Throws illegal argument exception if field cannot be found
@@ -112,7 +137,12 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    */
   public RDD<Vector> makeMLLibVector(String[] dimNames)
     throws IllegalArgumentException {
-    StructType schema = this.def.asSchema();
+    StructType schema = null;
+    try {
+      schema = SparkSchemaTranslator.toSparkSchema(this.def);
+    } catch(Exception e) {
+      throw new IllegalArgumentException(e.getMessage());
+    }
 
     // Precompute indices for the requested fields
     // Throws illegal argument exception if field cannot be found
@@ -137,25 +167,28 @@ public class HpccRDD extends RDD<Row> implements Serializable {
    */
   @Override
   public InterruptibleIterator<Row> compute(Partition p_arg, TaskContext ctx) {
-    final DataPartition this_part = (DataPartition) p_arg;
-    final RecordDef rd = this.def;
-    Iterator<Row> iter = new Iterator<Row>() {
-      private HpccRemoteFileReader rfr = new HpccRemoteFileReader(this_part, rd);
-      //
-      public boolean hasNext() { return this.rfr.hasNext();}
-      public Row next() { return this.rfr.next(); }
-    };
-    scala.collection.Iterator<Row> s_iter
-        = JavaConverters.asScalaIteratorConverter(iter).asScala();
-    InterruptibleIterator<Row> rslt
-        = new InterruptibleIterator<Row>(ctx, s_iter);
-    return rslt;
+    final InternalPartition this_part = (InternalPartition) p_arg;
+    final FieldDef rd = this.def;
+   
+    HpccRemoteFileReader<Row> fileReader = null;
+    try 
+    {
+      fileReader = new HpccRemoteFileReader<Row>(this_part.partition, rd, new GenericRowRecordBuilder(rd));
+    }
+    catch(Exception e)
+    {
+      Log.error("Failed to create remote file reader with error: " + e.getMessage());
+      return null;
+    }
+
+    scala.collection.Iterator<Row> iter = JavaConverters.asScalaIteratorConverter(fileReader).asScala();
+    return new InterruptibleIterator<Row>(ctx, iter);
   }
 
   @Override
   public Seq<String> getPreferredLocations(Partition split) {
-    final DataPartition part = (DataPartition) split;
-    return JavaConverters.asScalaBufferConverter(Arrays.asList(part.getCopyLocations())).asScala().seq();
+    final InternalPartition part = (InternalPartition) split;
+    return JavaConverters.asScalaBufferConverter(Arrays.asList(part.partition.getCopyLocations())).asScala().seq();
   }
 
   /* (non-Javadoc)

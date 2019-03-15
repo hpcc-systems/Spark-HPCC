@@ -17,47 +17,28 @@ package org.hpccsystems.spark;
 
 import java.io.Serializable;
 import java.net.MalformedURLException;
-import java.util.UUID;
 
-import org.apache.log4j.Logger;
+
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.execution.python.EvaluatePython;
-import org.hpccsystems.spark.thor.ClusterRemapper;
-import org.hpccsystems.spark.thor.DataPartition;
-import org.hpccsystems.spark.thor.FileFilter;
-import org.hpccsystems.spark.thor.RemapInfo;
-import org.hpccsystems.spark.thor.UnusableDataDefinitionException;
-import org.hpccsystems.ws.client.HPCCWsDFUClient;
-import org.hpccsystems.ws.client.gen.wsdfu.v1_39.SecAccessType;
+import org.hpccsystems.dfs.cluster.RemapInfo;
+import org.hpccsystems.dfs.client.DataPartition;
+import org.hpccsystems.commons.ecl.FieldDef;
+import org.hpccsystems.commons.errors.HpccFileException;
 import org.hpccsystems.ws.client.utils.Connection;
-import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileAccessInfoWrapper;
 
 /**
  * Access to file content on a collection of one or more HPCC
  * clusters.
  *
  */
-public class HpccFile implements Serializable {
+public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Serializable {
   static private final long serialVersionUID = 1L;
-
-  private static final Logger       log          = Logger.getLogger(HpccFile.class.getName());
-
-  private DataPartition[] dataParts;
-  private RecordDef recordDefinition;
-  private boolean isIndex;
-  static private final int DEFAULT_ACCESS_EXPIRY_SECONDS = 120;
-  private int fileAccessExpirySecs = DEFAULT_ACCESS_EXPIRY_SECONDS;
-
-  private transient Connection espConnInfo;
-  private String     fileName;
-  private String     targetfilecluster = "";
-  private RemapInfo  clusterRemapInfo = new RemapInfo();
-  private FileFilter filter;
-  private ColumnPruner projectList;
 
   // Make sure Python picklers have been registered
   static { EvaluatePython.registerPicklers(); }
@@ -73,7 +54,7 @@ public class HpccFile implements Serializable {
    */
   public HpccFile(String fileName, Connection espconninfo) throws HpccFileException
   {
-	  this(fileName, espconninfo, "", "", new RemapInfo(), 0, "");
+    super(fileName,espconninfo);
   }
 
   /**
@@ -87,9 +68,7 @@ public class HpccFile implements Serializable {
    */
   public HpccFile(String fileName, String connectionString, String user, String pass) throws MalformedURLException, HpccFileException
   {
-	  this(fileName, new Connection(connectionString));
-	  espConnInfo.setUserName(user);
-	  espConnInfo.setPassword(pass);
+    super(fileName,connectionString,user,pass);
   }
   /**
    * Constructor for the HpccFile.
@@ -108,166 +87,9 @@ public class HpccFile implements Serializable {
    */
   public HpccFile(String fileName, Connection espconninfo, String targetColumnList, String filter, RemapInfo remap_info, int maxParts, String targetfilecluster) throws HpccFileException
   {
-    this.fileName = fileName;
-    this.recordDefinition = new RecordDef();  // missing, the default
-    projectList = new ColumnPruner(targetColumnList);
-    this.espConnInfo = espconninfo;
-    this.filter = new FileFilter(filter);
-    clusterRemapInfo = remap_info;
+    super(fileName,espconninfo,targetColumnList,filter,remap_info,maxParts,targetfilecluster);
   }
 
-  /**
-  * @return
-  */
-  public String getProjectList()
-  {
-	return projectList.getFieldListString();
-  }
-
-  /**
- * @param projectList
- */
-  public void setProjectList(String projectList)
-  {
-	this.projectList = new ColumnPruner(projectList);
-  }
-
-  /**
-  * @return initial file access expiry in seconds
-  */
-  public int getFileAccessExpirySecs()
-  {
-	return fileAccessExpirySecs;
-  }
-
-  /**
-  * @param fileAccessExpirySecs initial access to a file is granted for a period
-  *        of time. This param can change the duration of that file access.
-  */
-  public void setFileAccessExpirySecs(int fileAccessExpirySecs)
-  {
-	this.fileAccessExpirySecs = fileAccessExpirySecs;
-  }
-
-  /**
-  * @return
-  */
-  public String getTargetfilecluster()
-  {
-	return targetfilecluster;
-  }
-
-  /**
-  * @param targetfilecluster
-  */
-  public void setTargetfilecluster(String targetfilecluster)
-  {
-	this.targetfilecluster = targetfilecluster;
-  }
-
-  /**
-  * @return
-  */
-  public RemapInfo getClusterRemapInfo()
-  {
-	return clusterRemapInfo;
-  }
-
-  /**
-  * @param remapinfo
-  */
-  public void setClusterRemapInfo(RemapInfo remapinfo)
-  {
-	this.clusterRemapInfo = remapinfo;
-  }
-
-  /**
-  * @return
-  */
-  public FileFilter getFilter()
-  {
-	return filter;
-  }
-
-  /**
-  * @param filterexpression
-  */
-  public void setFilter(String filterexpression)
-  {
-	this.filter = new FileFilter(filterexpression);
-  }
-
-  /**
-  * @return
-  */
-  public String getFileName()
-  {
-	return fileName;
-  }
-
-  /**
-  * @throws HpccFileException
-  */
-  private void createDataParts() throws HpccFileException
-  {
-	  HPCCWsDFUClient dfuClient = HPCCWsDFUClient.get(espConnInfo);
-	  String originalRecDefInJSON = "";
-	  try
-	  {
-	      DFUFileAccessInfoWrapper fileinfoforread = fetchReadFileInfo(fileName, dfuClient, fileAccessExpirySecs, targetfilecluster);
-	      originalRecDefInJSON = fileinfoforread.getRecordTypeInfoJson();
-          if (originalRecDefInJSON == null)
-          {
-              throw new UnusableDataDefinitionException("File record definiton returned from ESP was null");
-          }
-
-	      if (fileinfoforread.getNumParts() > 0)
-	      {
-	          ClusterRemapper clusterremapper = ClusterRemapper.makeMapper(clusterRemapInfo, fileinfoforread);
-	          this.dataParts = DataPartition.createPartitions(fileinfoforread.getFileParts(), clusterremapper, /*maxParts currently ignored anyway*/0, filter, fileinfoforread.getFileAccessInfoBlob());
-	          this.recordDefinition = RecordDef.fromJsonDef(originalRecDefInJSON, projectList);
-	      }
-	      else
-	          throw new HpccFileException("Could not fetch metadata for file: '" + fileName + "'");
-
-	  }
-	  catch (UnusableDataDefinitionException e)
-	  {
-		  log.error("Encountered invalid record definition: '" + originalRecDefInJSON + "'");
-	      throw new HpccFileException("Encountered invalid record definition", e);
-	  }
-	  catch (Exception e)
-	  {
-	      StringBuilder sb = new StringBuilder();
-	      sb.append("Failed to acquire file access for: '").append(fileName).append("'");
-	      throw new HpccFileException(sb.toString(), e);
-	  }
-  }
-
-  /**
-   * The partitions for the file residing on an HPCC cluster
-   * @return
-   * @throws HpccFileException
-   */
-  public DataPartition[] getFileParts() throws HpccFileException
-  {
-	  if (dataParts == null)
-		  createDataParts();
-
-      return dataParts;
-  }
-  /**
-   * The record definition for a file on an HPCC cluster.
-   * @return
-   * @throws HpccFileException
-   */
-  public RecordDef getRecordDefinition() throws HpccFileException
-  {
-      if (dataParts == null)
-          createDataParts();
-
-      return recordDefinition;
-  }
   /**
    * Make a Spark Resilient Distributed Dataset (RDD) that provides access
    * to THOR based datasets. Uses existing SparkContext, allows this function
@@ -286,7 +108,7 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException When there are errors reaching the THOR data
    */
   public HpccRDD getRDD(SparkContext sc) throws HpccFileException {
-	  return new HpccRDD(sc, getFileParts(), getRecordDefinition());
+	  return new HpccRDD(sc, getFileParts(), this.getProjectedRecordDefinition());
   }
   /**
    * Make a Spark Dataframe (Dataset<Row>) of THOR data available.
@@ -295,35 +117,17 @@ public class HpccFile implements Serializable {
    * @throws HpccFileException when htere are errors reaching the THOR data.
    */
   public Dataset<Row> getDataframe(SparkSession session) throws HpccFileException{
-    DataPartition[] fp = getFileParts();
-    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, getRecordDefinition())).toJavaRDD();
-    return session.createDataFrame(rdd, getRecordDefinition().asSchema());
-  }
-  /**
-   * Is this an index?
-   * @return true if yes
-   */
-  public boolean isIndex() { return this.isIndex; }
+    FieldDef rd = this.getProjectedRecordDefinition();
+    DataPartition[] fp = this.getFileParts();
+    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, rd)).toJavaRDD();
 
-  private static  DFUFileAccessInfoWrapper fetchReadFileInfo(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception
-  {
-    String uniqueID = "SPARK-HPCC: " + UUID.randomUUID().toString();
-    return hpccClient.getFileAccess(SecAccessType.Read, fileName, clusterName, expirySeconds, uniqueID, true, false, true);
-  }
+    StructType schema = null;
+    try {
+      schema = SparkSchemaTranslator.toSparkSchema(rd);
+    } catch(Exception e) {
+      throw new HpccFileException(e.getMessage());
+    }
 
-  private static String acquireReadFileAccess(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception
-  {
-    return acquireFileAccess(fileName, SecAccessType.Read, hpccClient, expirySeconds, clusterName);
-  }
-
-  private static String acquireWriteFileAccess(String fileName, HPCCWsDFUClient hpccClient, int expirySeconds, String clusterName) throws Exception
-  {
-    return acquireFileAccess(fileName, SecAccessType.Write, hpccClient, expirySeconds, clusterName);
-  }
-
-  private static String acquireFileAccess(String fileName, SecAccessType accesstype, HPCCWsDFUClient hpcc, int expirySeconds, String clusterName) throws Exception
-  {
-    String uniqueID = "SPARK-HPCC: " + UUID.randomUUID().toString();
-    return hpcc.getFileAccessBlob(accesstype, fileName, clusterName, expirySeconds, uniqueID);
+    return session.createDataFrame(rdd, schema);
   }
 }
