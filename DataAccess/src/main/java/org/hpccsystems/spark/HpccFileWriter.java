@@ -47,16 +47,18 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.*;
 import org.apache.spark.sql.execution.python.EvaluatePython;
 
-public class HpccFileWriter implements Serializable {
-    static private final long serialVersionUID = 1L;
-    static private final int DefaultExpiryTimeSecs = 300;
-    static private final Logger log = Logger.getLogger(HpccFileWriter.class.getName());
+public class HpccFileWriter implements Serializable
+{
+    static private final long         serialVersionUID      = 1L;
+    static private final int          DefaultExpiryTimeSecs = 300;
+    static private final Logger       log                   = Logger.getLogger(HpccFileWriter.class.getName());
 
     // Transient so Java serialization does not try to serialize this
-    private transient HPCCWsDFUClient dfuClient = null;
+    private transient HPCCWsDFUClient dfuClient             = null;
 
     // Make sure Python picklers have been registered
-    static {
+    static
+    {
         EvaluatePython.registerPicklers();
     }
 
@@ -73,11 +75,13 @@ public class HpccFileWriter implements Serializable {
     * @param pass the password for the provided user
     * @throws Exception 
     */
-    public HpccFileWriter(String connectionString, String user, String pass) throws Exception {
+    public HpccFileWriter(String connectionString, String user, String pass) throws Exception
+    {
         // Verify connection & password
-        final Pattern connectionRegex = Pattern.compile("(http|https)://([^:]+):([0-9]+)",Pattern.CASE_INSENSITIVE);
+        final Pattern connectionRegex = Pattern.compile("(http|https)://([^:]+):([0-9]+)", Pattern.CASE_INSENSITIVE);
         Matcher matches = connectionRegex.matcher(connectionString);
-        if (matches.find() == false) {
+        if (matches.find() == false)
+        {
             throw new Exception("Invalid connection string. Expected format: {http|https}://{HOST}:{PORT}");
         }
 
@@ -87,19 +91,21 @@ public class HpccFileWriter implements Serializable {
         this.dfuClient = HPCCWsDFUClient.get(conn);
     }
 
-    private void abortFileCreation() {
+    private void abortFileCreation()
+    {
         log.error("Abort file creation was called. This is currently a stub.");
     }
 
-    private class FilePartWriteResults implements Serializable {
+    private class FilePartWriteResults implements Serializable
+    {
         static private final long serialVersionUID = 1L;
 
-        public long numRecords = 0;
-        public long dataLength = 0;
-        public boolean successful = true; // Default to true for empty partitions
-        public String errorMessage = null;
+        public long               numRecords       = 0;
+        public long               dataLength       = 0;
+        public boolean            successful       = true; // Default to true for empty partitions
+        public String             errorMessage     = null;
     }
-    
+
     /**
     * Saves the provided RDD to the specified file within the specified cluster 
     * @param scalaRDD The RDD to save to HPCC
@@ -108,8 +114,9 @@ public class HpccFileWriter implements Serializable {
     * @return Returns the number of records written
     * @throws Exception 
     */
-    public long saveToHPCC(RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception {
-        return this.saveToHPCC(SparkContext.getOrCreate(),scalaRDD,clusterName,fileName,CompressionAlgorithm.DEFAULT,false);
+    public long saveToHPCC(RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception
+    {
+        return this.saveToHPCC(SparkContext.getOrCreate(), scalaRDD, clusterName, fileName, CompressionAlgorithm.DEFAULT, false);
     }
 
     /**
@@ -121,8 +128,10 @@ public class HpccFileWriter implements Serializable {
     * @return Returns the number of records written
     * @throws Exception 
     */
-    public long saveToHPCC(RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite) throws Exception {
-        return this.saveToHPCC(SparkContext.getOrCreate(),scalaRDD,clusterName,fileName,fileCompression,overwrite);
+    public long saveToHPCC(RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
+            throws Exception
+    {
+        return this.saveToHPCC(SparkContext.getOrCreate(), scalaRDD, clusterName, fileName, fileCompression, overwrite);
     }
 
     /**
@@ -134,10 +143,11 @@ public class HpccFileWriter implements Serializable {
     * @return Returns the number of records written
     * @throws Exception 
     */
-    public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception {
-        return saveToHPCC(sc,scalaRDD,clusterName,fileName,CompressionAlgorithm.NONE,false);
+    public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception
+    {
+        return saveToHPCC(sc, scalaRDD, clusterName, fileName, CompressionAlgorithm.NONE, false);
     }
-    
+
     /**
     * Saves the provided RDD to the specified file within the specified cluster 
     * @param sc The current SparkContext
@@ -148,8 +158,10 @@ public class HpccFileWriter implements Serializable {
     * @return Returns the number of records written
     * @throws Exception 
     */
-    public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite) throws Exception {
-        
+    public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
+            boolean overwrite) throws Exception
+    {
+
         // Cache the RDD so we get the same partition mapping
         JavaRDD<Row> rdd = JavaRDD.fromRDD(scalaRDD, ClassTag$.MODULE$.apply(Row.class));
 
@@ -159,27 +171,29 @@ public class HpccFileWriter implements Serializable {
 
         Row firstRow = scalaRDD.first();
         StructType schema = firstRow.schema();
-        FieldDef recordDef  = SparkSchemaTranslator.toHPCCRecordDef(schema);
+        FieldDef recordDef = SparkSchemaTranslator.toHPCCRecordDef(schema);
         String eclRecordDefn = RecordDefinitionTranslator.toECLRecord(recordDef);
-        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName,clusterName,eclRecordDefn,DefaultExpiryTimeSecs);
+        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs);
 
         DFUFilePartWrapper[] dfuFileParts = createResult.getFileParts();
-        DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts, new NullRemapper(new RemapInfo(),createResult.getFileAccessInfo()), dfuFileParts.length, createResult.getFileAccessInfoBlob());
+        DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts,
+                new NullRemapper(new RemapInfo(), createResult.getFileAccessInfo()), dfuFileParts.length, createResult.getFileAccessInfoBlob());
 
-        if (hpccPartitions.length != rdd.getNumPartitions()) {
+        if (hpccPartitions.length != rdd.getNumPartitions())
+        {
             rdd.repartition(hpccPartitions.length);
-            if (rdd.getNumPartitions() != hpccPartitions.length) {
+            if (rdd.getNumPartitions() != hpccPartitions.length)
+            {
                 throw new Exception("Repartitioning RDD failed. Aborting write.");
             }
         }
 
-
         /*
         int filePartsPerPartition = dfuFileParts.length / numPartitions;
-
+        
         int residualFileParts = dfuFileParts.length % numPartitions;
         int residualFilePartsModulo = -1;
-
+        
         // residualPartitionModulo = ceil(numPartitions / residualFileParts);
         // Doing the following to use only integer math to avoid potential floating point issues
         if (residualFileParts > 0) {
@@ -192,20 +206,24 @@ public class HpccFileWriter implements Serializable {
         //  Write partitions to file parts
         //------------------------------------------------------------------------------
 
-        Function2<Integer, Iterator<Row>, Iterator<FilePartWriteResults>> writeFunc = 
-        (Integer partitionIndex, Iterator<Row> it) -> {
+        Function2<Integer, Iterator<Row>, Iterator<FilePartWriteResults>> writeFunc = (Integer partitionIndex, Iterator<Row> it) ->
+        {
             GenericRowRecordAccessor recordAccessor = new GenericRowRecordAccessor(recordDef);
-            HPCCRemoteFileWriter<Row> fileWriter = new HPCCRemoteFileWriter<Row>(hpccPartitions[partitionIndex], recordDef, recordAccessor, fileCompression);
+            HPCCRemoteFileWriter<Row> fileWriter = new HPCCRemoteFileWriter<Row>(hpccPartitions[partitionIndex], recordDef, recordAccessor,
+                    fileCompression);
 
             FilePartWriteResults result = new FilePartWriteResults();
-            try {
+            try
+            {
                 fileWriter.writeRecords(it);
                 fileWriter.close();
-                
+
                 result.dataLength = fileWriter.getBytesWritten();
                 result.numRecords = fileWriter.getRecordsWritten();
                 result.successful = true;
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 result.successful = false;
                 result.errorMessage = e.getMessage();
             }
@@ -215,29 +233,34 @@ public class HpccFileWriter implements Serializable {
         };
 
         // Create Write Job
-        JavaRDD<FilePartWriteResults> writeResultsRDD = rdd.mapPartitionsWithIndex(writeFunc,true);
+        JavaRDD<FilePartWriteResults> writeResultsRDD = rdd.mapPartitionsWithIndex(writeFunc, true);
         List<FilePartWriteResults> writeResultsList = writeResultsRDD.collect();
 
         long recordsWritten = 0;
         long dataWritten = 0;
-        for (int i = 0; i < writeResultsList.size(); i++) {
+        for (int i = 0; i < writeResultsList.size(); i++)
+        {
             FilePartWriteResults result = writeResultsList.get(i);
             recordsWritten += result.numRecords;
             dataWritten += result.dataLength;
 
-            if (result.successful == false) {
+            if (result.successful == false)
+            {
                 abortFileCreation();
                 throw new Exception("Writing failed with error: " + result.errorMessage);
             }
         }
-        
+
         //------------------------------------------------------------------------------
         //  Publish and finalize the temp file
         //------------------------------------------------------------------------------
 
-        try {
-            dfuClient.publishFile(createResult.getFileID(),eclRecordDefn,recordsWritten,dataWritten,overwrite);
-        } catch (Exception e) {
+        try
+        {
+            dfuClient.publishFile(createResult.getFileID(), eclRecordDefn, recordsWritten, dataWritten, overwrite);
+        }
+        catch (Exception e)
+        {
             throw new Exception("Failed to publish file with error: " + e.getMessage());
         }
 

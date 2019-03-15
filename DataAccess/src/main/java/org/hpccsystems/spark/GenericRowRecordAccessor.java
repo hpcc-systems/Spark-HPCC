@@ -69,9 +69,10 @@ public class GenericRowRecordAccessor implements IRecordAccessor
 
     }
 
-    public void setRecord(Object rd)
+    public IRecordAccessor setRecord(Object rd)
     {
         this.row = (GenericRowWithSchema) rd;
+        return this;
     }
 
     public int getNumFields()
