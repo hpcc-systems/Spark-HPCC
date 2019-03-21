@@ -181,7 +181,7 @@ public class HpccFileWriter implements Serializable
 
         if (hpccPartitions.length != rdd.getNumPartitions())
         {
-            rdd.repartition(hpccPartitions.length);
+            rdd = rdd.repartition(hpccPartitions.length);
             if (rdd.getNumPartitions() != hpccPartitions.length)
             {
                 throw new Exception("Repartitioning RDD failed. Aborting write.");
