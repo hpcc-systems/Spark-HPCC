@@ -108,6 +108,19 @@ public class HpccFileWriter implements Serializable
 
     /**
     * Saves the provided RDD to the specified file within the specified cluster 
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception
+    {
+        return this.saveToHPCC(javaRDD.rdd(), clusterName, fileName);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster 
     * @param scalaRDD The RDD to save to HPCC
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
@@ -136,6 +149,21 @@ public class HpccFileWriter implements Serializable
 
     /**
     * Saves the provided RDD to the specified file within the specified cluster 
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @param fileCompression compression algorithm to use on files
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
+            throws Exception
+    {
+        return this.saveToHPCC(SparkContext.getOrCreate(), javaRDD.rdd(), clusterName, fileName, fileCompression, overwrite);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster 
     * @param sc The current SparkContext
     * @param scalaRDD The RDD to save to HPCC
     * @param clusterName The name of the cluster to save to.
@@ -146,6 +174,36 @@ public class HpccFileWriter implements Serializable
     public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception
     {
         return saveToHPCC(sc, scalaRDD, clusterName, fileName, CompressionAlgorithm.NONE, false);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster 
+    * @param sc The current SparkContext
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(SparkContext sc, JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception
+    {
+        return saveToHPCC(sc, javaRDD.rdd(), clusterName, fileName, CompressionAlgorithm.NONE, false);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster 
+    * @param sc The current SparkContext
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @param fileCompression compression algorithm to use on files
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(SparkContext sc, JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
+            boolean overwrite) throws Exception
+    {
+        return this.saveToHPCC(sc, javaRDD.rdd(), clusterName, fileName, fileCompression, overwrite);
     }
 
     /**
