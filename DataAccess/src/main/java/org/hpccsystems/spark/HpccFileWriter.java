@@ -107,7 +107,25 @@ public class HpccFileWriter implements Serializable
     }
 
     /**
-    * Saves the provided RDD to the specified file within the specified cluster 
+    * Saves the provided RDD to the specified file within the specified cluster. Will use HPCC default file compression.
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception
+    {
+        if (javaRDD == null)
+        {
+            throw new Exception("RDD provided is null. Aborting write.");
+        }
+
+        return this.saveToHPCC(javaRDD.rdd(), clusterName, fileName);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster. Will use HPCC default file compression. 
     * @param scalaRDD The RDD to save to HPCC
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
@@ -136,6 +154,25 @@ public class HpccFileWriter implements Serializable
 
     /**
     * Saves the provided RDD to the specified file within the specified cluster 
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @param fileCompression compression algorithm to use on files
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
+            throws Exception
+    {
+        if (javaRDD == null)
+        {
+            throw new Exception("RDD provided is null. Aborting write.");
+        }
+        return this.saveToHPCC(SparkContext.getOrCreate(), javaRDD.rdd(), clusterName, fileName, fileCompression, overwrite);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster. Will use HPCC default file compression.
     * @param sc The current SparkContext
     * @param scalaRDD The RDD to save to HPCC
     * @param clusterName The name of the cluster to save to.
@@ -145,7 +182,42 @@ public class HpccFileWriter implements Serializable
     */
     public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception
     {
-        return saveToHPCC(sc, scalaRDD, clusterName, fileName, CompressionAlgorithm.NONE, false);
+        return saveToHPCC(sc, scalaRDD, clusterName, fileName, CompressionAlgorithm.DEFAULT, false);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster. Will use HPCC default file compression.
+    * @param sc The current SparkContext
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(SparkContext sc, JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception
+    {
+        if (javaRDD == null)
+        {
+            throw new Exception("RDD provided is null. Aborting write.");
+        }
+
+        return saveToHPCC(sc, javaRDD.rdd(), clusterName, fileName, CompressionAlgorithm.DEFAULT, false);
+    }
+
+    /**
+    * Saves the provided RDD to the specified file within the specified cluster 
+    * @param sc The current SparkContext
+    * @param javaRDD The RDD to save to HPCC
+    * @param clusterName The name of the cluster to save to.
+    * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
+    * @param fileCompression compression algorithm to use on files
+    * @return Returns the number of records written
+    * @throws Exception 
+    */
+    public long saveToHPCC(SparkContext sc, JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
+            boolean overwrite) throws Exception
+    {
+        return this.saveToHPCC(sc, javaRDD.rdd(), clusterName, fileName, fileCompression, overwrite);
     }
 
     /**
@@ -187,20 +259,6 @@ public class HpccFileWriter implements Serializable
                 throw new Exception("Repartitioning RDD failed. Aborting write.");
             }
         }
-
-        /*
-        int filePartsPerPartition = dfuFileParts.length / numPartitions;
-        
-        int residualFileParts = dfuFileParts.length % numPartitions;
-        int residualFilePartsModulo = -1;
-        
-        // residualPartitionModulo = ceil(numPartitions / residualFileParts);
-        // Doing the following to use only integer math to avoid potential floating point issues
-        if (residualFileParts > 0) {
-            int roundUpFactor = (residualFileParts + 1) / 2;
-            residualFilePartsModulo = (numPartitions + roundUpFactor) / residualFileParts;
-        }
-        */
 
         //------------------------------------------------------------------------------
         //  Write partitions to file parts
