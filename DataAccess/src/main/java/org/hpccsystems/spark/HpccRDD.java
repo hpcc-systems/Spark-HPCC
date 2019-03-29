@@ -30,6 +30,7 @@ import org.apache.spark.mllib.linalg.DenseVector;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.sql.execution.python.EvaluatePython;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
 import org.apache.log4j.Logger;
@@ -44,6 +45,8 @@ import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
+import net.razorvine.pickle.Unpickler;
+
 /**
  * The implementation of the RDD<GenericRowWithSchema>
  *
@@ -56,6 +59,13 @@ public class HpccRDD extends RDD<Row> implements Serializable
 
     private InternalPartition[]        parts;
     private FieldDef                   def;
+
+    private static void registerPicklingFunctions()
+    {
+        EvaluatePython.registerPicklers();
+        Unpickler.registerConstructor("pyspark.sql.types", "Row", new RowConstructor());
+        Unpickler.registerConstructor("pyspark.sql.types", "_create_row", new RowConstructor());
+    }
 
     private class InternalPartition implements Partition
     {
@@ -188,13 +198,28 @@ public class HpccRDD extends RDD<Row> implements Serializable
     @Override
     public InterruptibleIterator<Row> compute(Partition p_arg, TaskContext ctx)
     {
+        HpccRDD.registerPicklingFunctions();
+
         final InternalPartition this_part = (InternalPartition) p_arg;
         final FieldDef rd = this.def;
 
-        HpccRemoteFileReader<Row> fileReader = null;
+        scala.collection.Iterator<Row> iter = null;
         try
         {
-            fileReader = new HpccRemoteFileReader<Row>(this_part.partition, rd, new GenericRowRecordBuilder(rd));
+            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, rd, new GenericRowRecordBuilder(rd));
+            ctx.addTaskCompletionListener(taskContext -> 
+            {
+                if (fileReader != null)
+                {
+                    try
+                    {
+                        fileReader.close();
+                    }
+                    catch(Exception e) {}
+                }
+            });
+
+            iter = JavaConverters.asScalaIteratorConverter(fileReader).asScala();
         }
         catch (Exception e)
         {
@@ -202,7 +227,6 @@ public class HpccRDD extends RDD<Row> implements Serializable
             return null;
         }
 
-        scala.collection.Iterator<Row> iter = JavaConverters.asScalaIteratorConverter(fileReader).asScala();
         return new InterruptibleIterator<Row>(ctx, iter);
     }
 
