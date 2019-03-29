@@ -45,6 +45,8 @@ import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
+import net.razorvine.pickle.Unpickler;
+
 /**
  * The implementation of the RDD<GenericRowWithSchema>
  *
@@ -57,6 +59,13 @@ public class HpccRDD extends RDD<Row> implements Serializable
 
     private InternalPartition[]        parts;
     private FieldDef                   def;
+
+    private static void registerPicklingFunctions()
+    {
+        EvaluatePython.registerPicklers();
+        Unpickler.registerConstructor("pyspark.sql.types", "Row", new RowConstructor());
+        Unpickler.registerConstructor("pyspark.sql.types", "_create_row", new RowConstructor());
+    }
 
     private class InternalPartition implements Partition
     {
@@ -189,7 +198,8 @@ public class HpccRDD extends RDD<Row> implements Serializable
     @Override
     public InterruptibleIterator<Row> compute(Partition p_arg, TaskContext ctx)
     {
-        EvaluatePython.registerPicklers(); 
+        HpccRDD.registerPicklingFunctions();
+
         final InternalPartition this_part = (InternalPartition) p_arg;
         final FieldDef rd = this.def;
 
