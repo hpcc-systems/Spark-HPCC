@@ -160,6 +160,12 @@
             <artifactId>dfsclient</artifactId>
             <version>7.2.0</version>
         </dependency>
+        <dependency>
+            <groupId>net.razorvine</groupId>
+            <artifactId>pyrolite</artifactId>
+            <version>[4.13,)</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
     <developers>
         <developer>
