@@ -15,26 +15,24 @@
  *******************************************************************************/
 package org.hpccsystems.spark;
 
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
-
-import net.razorvine.pickle.IObjectConstructor;
-import net.razorvine.pickle.PickleException;
-
-public class RowConstructor implements IObjectConstructor
+public class PySparkField 
 {
+    private String name = null;
+    private Object value = null; 
 
-    public RowConstructor() {}
-
-    @Override
-    public Object construct(Object[] tupleFields) throws PickleException
+    public PySparkField(String n, Object v)
     {
-        // PySpark Rows consist of two properties. An ArrayList of field names and Object[] array of field values.
-        if (tupleFields.length != 2)
-        {
-            throw new PickleException("Unexpected Row data layout.");
-        }
+        name = n;
+        value = v;
+    }
 
-        Object[] rowFields = (Object[]) tupleFields[1];
-        return new GenericRowWithSchema(rowFields,null);
+    public String getName()
+    {
+        return name;
+    }
+
+    public Object getValue()
+    {
+        return value;
     }
 }

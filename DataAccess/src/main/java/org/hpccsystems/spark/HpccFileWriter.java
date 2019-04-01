@@ -67,6 +67,8 @@ public class HpccFileWriter implements Serializable
         EvaluatePython.registerPicklers();
         Unpickler.registerConstructor("pyspark.sql.types", "Row", new RowConstructor());
         Unpickler.registerConstructor("pyspark.sql.types", "_create_row", new RowConstructor());
+        Unpickler.registerConstructor("org.hpccsystems", "PySparkField", new PySparkFieldConstructor());
+        Unpickler.registerConstructor("__builtin__", "HpccPySparkField", new PySparkFieldConstructor());
     }
 
     static 
@@ -335,7 +337,8 @@ public class HpccFileWriter implements Serializable
 
         FieldDef recordDef = SparkSchemaTranslator.toHPCCRecordDef(schema);
         String eclRecordDefn = RecordDefinitionTranslator.toECLRecord(recordDef);
-        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, fileCompression != CompressionAlgorithm.NONE);
+        boolean isCompressed = fileCompression != CompressionAlgorithm.NONE;
+        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed);
 
         DFUFilePartWrapper[] dfuFileParts = createResult.getFileParts();
         DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts,
@@ -422,19 +425,19 @@ public class HpccFileWriter implements Serializable
     * @return Returns a valid Spark schema based on the example rowDictionary
     * @throws Exception
     */
-    public StructType inferSchema(Map<String,Object> rowDictionary) throws Exception
+    public StructType inferSchema(List<PySparkField> exampleFields) throws Exception
     {
-        return generateRowSchema(rowDictionary);
+        return generateRowSchema(exampleFields);
     }
 
-    private StructType generateRowSchema(Map<String,Object> rowDictionary) throws Exception
+    private StructType generateRowSchema(List<PySparkField> exampleFields) throws Exception
     {
-        StructField[] fields = new StructField[rowDictionary.size()];
+        StructField[] fields = new StructField[exampleFields.size()];
 
         int index = 0;
-        for (Map.Entry<String,Object> entry : rowDictionary.entrySet())
+        for (PySparkField fieldInfo : exampleFields)
         {
-            fields[index] = generateSchemaField(entry.getKey(), entry.getValue());
+            fields[index] = generateSchemaField(fieldInfo.getName(), fieldInfo.getValue());
             index++;
         }
 
@@ -505,22 +508,25 @@ public class HpccFileWriter implements Serializable
         }
         else if (obj instanceof List)
         {
-            List<Object> rowSet = (List<Object>) obj;
-            if (rowSet.size() == 0)
+            List<Object> list= (List<Object>) obj;
+            if (list.size() == 0)
             {
                 throw new Exception("Unable to infer row schema. Encountered an empty List: " + name 
                     + ". All lists must have an example row to infer schema.");
             }
 
-            Object firstChild = rowSet.get(0);
-            StructField childField = generateSchemaField("temp",firstChild);
-            type = DataTypes.createArrayType(childField.dataType());
-            nullable = true;
-        }
-        else if (obj instanceof Map)
-        {
-            Map<String,Object> rowDict = (Map<String,Object>) obj;
-            type = generateRowSchema(rowDict);
+            Object firstChild = list.get(0);
+            if (firstChild instanceof PySparkField) 
+            {
+                List<PySparkField> rowFields = (List<PySparkField>)(List<?>) list;
+                type = generateRowSchema(rowFields);
+            }
+            else
+            {
+                StructField childField = generateSchemaField("temp",firstChild);
+                type = DataTypes.createArrayType(childField.dataType());
+                nullable = true;
+            }
         }
         else
         {
