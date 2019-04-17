@@ -61,6 +61,7 @@ public class HpccFileWriter implements Serializable
 
     // Transient so Java serialization does not try to serialize this
     private transient HPCCWsDFUClient dfuClient             = null;
+    private transient Connection connectionInfo             = null;
 
     private static void registerPicklingFunctions()
     {
@@ -68,7 +69,6 @@ public class HpccFileWriter implements Serializable
         Unpickler.registerConstructor("pyspark.sql.types", "Row", new RowConstructor());
         Unpickler.registerConstructor("pyspark.sql.types", "_create_row", new RowConstructor());
         Unpickler.registerConstructor("org.hpccsystems", "PySparkField", new PySparkFieldConstructor());
-        Unpickler.registerConstructor("__builtin__", "HpccPySparkField", new PySparkFieldConstructor());
     }
 
     static 
@@ -78,7 +78,7 @@ public class HpccFileWriter implements Serializable
 
     public HpccFileWriter(Connection espconninfo) throws HpccFileException
     {
-        this.dfuClient = HPCCWsDFUClient.get(espconninfo);
+        this.connectionInfo = espconninfo;
     }
 
     /**
@@ -99,10 +99,9 @@ public class HpccFileWriter implements Serializable
             throw new Exception("Invalid connection string. Expected format: {http|https}://{HOST}:{PORT}");
         }
 
-        Connection conn = new Connection(matches.group(1), matches.group(2), matches.group(3));
-        conn.setUserName(user);
-        conn.setPassword(pass);
-        this.dfuClient = HPCCWsDFUClient.get(conn);
+        this.connectionInfo = new Connection(matches.group(1), matches.group(2), matches.group(3));
+        this.connectionInfo.setUserName(user);
+        this.connectionInfo.setPassword(pass);
     }
 
     private void abortFileCreation()
@@ -323,6 +322,8 @@ public class HpccFileWriter implements Serializable
     public long saveToHPCC(SparkContext sc, StructType rddSchema, JavaRDD<Row> rdd, String clusterName, String fileName, CompressionAlgorithm fileCompression,
             boolean overwrite) throws Exception
     {
+        this.dfuClient = HPCCWsDFUClient.get(this.connectionInfo);
+
         if (sc == null || rdd == null)
         {
             throw new Exception("Aborting write. A valid non-null SparkContext and RDD must be provided.");

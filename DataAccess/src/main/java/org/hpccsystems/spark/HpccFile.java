@@ -108,7 +108,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    * @throws HpccFileException When there are errors reaching the THOR data
    */
   public HpccRDD getRDD(SparkContext sc) throws HpccFileException {
-	  return new HpccRDD(sc, getFileParts(), this.getProjectedRecordDefinition());
+	  return new HpccRDD(sc, getFileParts(), this.getRecordDefinition(), this.getProjectedRecordDefinition());
   }
   /**
    * Make a Spark Dataframe (Dataset<Row>) of THOR data available.
@@ -117,13 +117,14 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    * @throws HpccFileException when htere are errors reaching the THOR data.
    */
   public Dataset<Row> getDataframe(SparkSession session) throws HpccFileException{
-    FieldDef rd = this.getProjectedRecordDefinition();
+    FieldDef originalRD = this.getRecordDefinition();
+    FieldDef projectedRD = this.getProjectedRecordDefinition();
     DataPartition[] fp = this.getFileParts();
-    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, rd)).toJavaRDD();
+    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, originalRD, projectedRD)).toJavaRDD();
 
     StructType schema = null;
     try {
-      schema = SparkSchemaTranslator.toSparkSchema(rd);
+      schema = SparkSchemaTranslator.toSparkSchema(projectedRD);
     } catch(Exception e) {
       throw new HpccFileException(e.getMessage());
     }

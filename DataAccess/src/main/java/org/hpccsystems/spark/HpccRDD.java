@@ -37,6 +37,7 @@ import org.apache.log4j.Logger;
 
 import org.hpccsystems.dfs.client.DataPartition;
 import org.hpccsystems.dfs.client.HpccRemoteFileReader;
+
 import org.hpccsystems.commons.ecl.FieldDef;
 
 import scala.collection.JavaConverters;
@@ -58,7 +59,8 @@ public class HpccRDD extends RDD<Row> implements Serializable
     private static final ClassTag<Row> CT_RECORD        = ClassTag$.MODULE$.apply(Row.class);
 
     private InternalPartition[]        parts;
-    private FieldDef                   def;
+    private FieldDef                   originalRecordDef = null;
+    private FieldDef                   projectedRecordDef = null;
 
     private static void registerPicklingFunctions()
     {
@@ -87,9 +89,20 @@ public class HpccRDD extends RDD<Row> implements Serializable
     /**
      * @param sc
      * @param dataParts
-     * @param recordDefinition
+     * @param originalRD 
     */
-    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef recordDefinition)
+    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD)
+    {
+        this(sc,dataParts,originalRD,originalRD);
+    }
+
+    /**
+     * @param sc
+     * @param dataParts
+     * @param originalRD 
+     * @param projectedRD 
+    */
+    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD)
     {
         super(sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
         this.parts = new InternalPartition[dataParts.length];
@@ -98,7 +111,9 @@ public class HpccRDD extends RDD<Row> implements Serializable
             this.parts[i] = new InternalPartition();
             this.parts[i].partition = dataParts[i];
         }
-        this.def = recordDefinition;
+
+        this.originalRecordDef = originalRD;
+        this.projectedRecordDef = projectedRD; 
     }
 
     /**
@@ -123,7 +138,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
         StructType schema = null;
         try
         {
-            schema = SparkSchemaTranslator.toSparkSchema(this.def);
+            schema = SparkSchemaTranslator.toSparkSchema(this.projectedRecordDef);
         }
         catch (Exception e)
         {
@@ -164,7 +179,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
         StructType schema = null;
         try
         {
-            schema = SparkSchemaTranslator.toSparkSchema(this.def);
+            schema = SparkSchemaTranslator.toSparkSchema(this.projectedRecordDef);
         }
         catch (Exception e)
         {
@@ -201,12 +216,25 @@ public class HpccRDD extends RDD<Row> implements Serializable
         HpccRDD.registerPicklingFunctions();
 
         final InternalPartition this_part = (InternalPartition) p_arg;
-        final FieldDef rd = this.def;
+        final FieldDef originalRD = this.originalRecordDef;
+        final FieldDef projectedRD = this.projectedRecordDef;
+
+        if (originalRD == null)
+        {
+            log.error("Original record defintion is null. Aborting.");
+            return null;
+        }
+        
+        if (projectedRD == null)
+        {
+            log.error("Projected record defintion is null. Aborting.");
+            return null;
+        }
 
         scala.collection.Iterator<Row> iter = null;
         try
         {
-            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, rd, new GenericRowRecordBuilder(rd));
+            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, originalRD, new GenericRowRecordBuilder(projectedRD));
             ctx.addTaskCompletionListener(taskContext -> 
             {
                 if (fileReader != null)
