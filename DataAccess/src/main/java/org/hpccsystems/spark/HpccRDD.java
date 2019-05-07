@@ -210,7 +210,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
     public Seq<String> getPreferredLocations(Partition split)
     {
         final InternalPartition part = (InternalPartition) split;
-        return JavaConverters.asScalaBufferConverter(Arrays.asList(part.partition.getCopyLocations())).asScala().seq();
+        return JavaConverters.asScalaBufferConverter(Arrays.asList(part.partition.getCopyLocations()[0])).asScala().seq();
     }
 
     /* (non-Javadoc)

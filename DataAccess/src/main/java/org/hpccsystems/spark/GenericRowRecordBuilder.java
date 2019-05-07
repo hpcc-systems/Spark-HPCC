@@ -20,8 +20,13 @@ import org.hpccsystems.dfs.client.IRecordBuilder;
 
 import org.hpccsystems.commons.ecl.FieldDef;
 import org.hpccsystems.commons.ecl.FieldType;
+
+import java.util.List;
+
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.*;
+
+import scala.collection.JavaConverters;
 
 public class GenericRowRecordBuilder implements IRecordBuilder
 {
@@ -87,7 +92,15 @@ public class GenericRowRecordBuilder implements IRecordBuilder
 
     public void setFieldValue(int index, Object value) throws IllegalArgumentException, IllegalAccessException
     {
-        this.fields[index] = value;
+        if (value instanceof List)
+        {
+            List<Object> listVal = (List<Object>) value;
+            this.fields[index] = JavaConverters.asScalaIteratorConverter(listVal.iterator()).asScala().toSeq();
+        }
+        else
+        {
+            this.fields[index] = value;
+        }
     }
 
     public IRecordBuilder getChildRecordBuilder(int index)

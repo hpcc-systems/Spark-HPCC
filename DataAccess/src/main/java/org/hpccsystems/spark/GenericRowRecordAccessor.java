@@ -18,6 +18,9 @@ package org.hpccsystems.spark;
 
 import org.hpccsystems.dfs.client.IRecordAccessor;
 
+import scala.collection.JavaConverters;
+import scala.collection.Seq;
+
 import org.hpccsystems.commons.ecl.FieldDef;
 import org.hpccsystems.commons.ecl.FieldType;
 
@@ -82,7 +85,16 @@ public class GenericRowRecordAccessor implements IRecordAccessor
 
     public Object getFieldValue(int index)
     {
-        return this.row.get(index);
+        Object value = this.row.get(index);
+        if (value instanceof Seq)
+        {
+            Seq seqValue = (Seq) value;
+            return JavaConverters.seqAsJavaListConverter(seqValue).asJava();
+        }
+        else
+        {
+            return value;
+        }
     }
 
     public FieldDef getFieldDefinition(int index)
