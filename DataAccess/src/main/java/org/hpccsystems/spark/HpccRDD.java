@@ -30,12 +30,14 @@ import org.apache.spark.mllib.linalg.DenseVector;
 import org.apache.spark.mllib.linalg.Vector;
 import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.sql.execution.python.EvaluatePython;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
 import org.apache.log4j.Logger;
 
 import org.hpccsystems.dfs.client.DataPartition;
 import org.hpccsystems.dfs.client.HpccRemoteFileReader;
+
 import org.hpccsystems.commons.ecl.FieldDef;
 
 import scala.collection.JavaConverters;
@@ -43,6 +45,8 @@ import scala.collection.Seq;
 import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
+
+import net.razorvine.pickle.Unpickler;
 
 /**
  * The implementation of the RDD<GenericRowWithSchema>
@@ -55,7 +59,15 @@ public class HpccRDD extends RDD<Row> implements Serializable
     private static final ClassTag<Row> CT_RECORD        = ClassTag$.MODULE$.apply(Row.class);
 
     private InternalPartition[]        parts;
-    private FieldDef                   def;
+    private FieldDef                   originalRecordDef = null;
+    private FieldDef                   projectedRecordDef = null;
+
+    private static void registerPicklingFunctions()
+    {
+        EvaluatePython.registerPicklers();
+        Unpickler.registerConstructor("pyspark.sql.types", "Row", new RowConstructor());
+        Unpickler.registerConstructor("pyspark.sql.types", "_create_row", new RowConstructor());
+    }
 
     private class InternalPartition implements Partition
     {
@@ -77,9 +89,20 @@ public class HpccRDD extends RDD<Row> implements Serializable
     /**
      * @param sc
      * @param dataParts
-     * @param recordDefinition
+     * @param originalRD 
     */
-    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef recordDefinition)
+    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD)
+    {
+        this(sc,dataParts,originalRD,originalRD);
+    }
+
+    /**
+     * @param sc
+     * @param dataParts
+     * @param originalRD 
+     * @param projectedRD 
+    */
+    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD)
     {
         super(sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
         this.parts = new InternalPartition[dataParts.length];
@@ -88,7 +111,9 @@ public class HpccRDD extends RDD<Row> implements Serializable
             this.parts[i] = new InternalPartition();
             this.parts[i].partition = dataParts[i];
         }
-        this.def = recordDefinition;
+
+        this.originalRecordDef = originalRD;
+        this.projectedRecordDef = projectedRD; 
     }
 
     /**
@@ -113,7 +138,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
         StructType schema = null;
         try
         {
-            schema = SparkSchemaTranslator.toSparkSchema(this.def);
+            schema = SparkSchemaTranslator.toSparkSchema(this.projectedRecordDef);
         }
         catch (Exception e)
         {
@@ -154,7 +179,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
         StructType schema = null;
         try
         {
-            schema = SparkSchemaTranslator.toSparkSchema(this.def);
+            schema = SparkSchemaTranslator.toSparkSchema(this.projectedRecordDef);
         }
         catch (Exception e)
         {
@@ -188,13 +213,41 @@ public class HpccRDD extends RDD<Row> implements Serializable
     @Override
     public InterruptibleIterator<Row> compute(Partition p_arg, TaskContext ctx)
     {
-        final InternalPartition this_part = (InternalPartition) p_arg;
-        final FieldDef rd = this.def;
+        HpccRDD.registerPicklingFunctions();
 
-        HpccRemoteFileReader<Row> fileReader = null;
+        final InternalPartition this_part = (InternalPartition) p_arg;
+        final FieldDef originalRD = this.originalRecordDef;
+        final FieldDef projectedRD = this.projectedRecordDef;
+
+        if (originalRD == null)
+        {
+            log.error("Original record defintion is null. Aborting.");
+            return null;
+        }
+        
+        if (projectedRD == null)
+        {
+            log.error("Projected record defintion is null. Aborting.");
+            return null;
+        }
+
+        scala.collection.Iterator<Row> iter = null;
         try
         {
-            fileReader = new HpccRemoteFileReader<Row>(this_part.partition, rd, new GenericRowRecordBuilder(rd));
+            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, originalRD, new GenericRowRecordBuilder(projectedRD));
+            ctx.addTaskCompletionListener(taskContext -> 
+            {
+                if (fileReader != null)
+                {
+                    try
+                    {
+                        fileReader.close();
+                    }
+                    catch(Exception e) {}
+                }
+            });
+
+            iter = JavaConverters.asScalaIteratorConverter(fileReader).asScala();
         }
         catch (Exception e)
         {
@@ -202,7 +255,6 @@ public class HpccRDD extends RDD<Row> implements Serializable
             return null;
         }
 
-        scala.collection.Iterator<Row> iter = JavaConverters.asScalaIteratorConverter(fileReader).asScala();
         return new InterruptibleIterator<Row>(ctx, iter);
     }
 
