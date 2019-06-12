@@ -45,7 +45,6 @@ import scala.collection.Seq;
 import scala.collection.mutable.ArrayBuffer;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
-
 import net.razorvine.pickle.Unpickler;
 
 /**
@@ -58,9 +57,13 @@ public class HpccRDD extends RDD<Row> implements Serializable
     private static final Logger        log              = Logger.getLogger(HpccRDD.class.getName());
     private static final ClassTag<Row> CT_RECORD        = ClassTag$.MODULE$.apply(Row.class);
 
+    public static int                  DEFAULT_CONNECTION_TIMEOUT = 120;
+
     private InternalPartition[]        parts;
     private FieldDef                   originalRecordDef = null;
     private FieldDef                   projectedRecordDef = null;
+    private int                        connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
+    private int                        recordLimit = -1;
 
     private static void registerPicklingFunctions()
     {
@@ -95,7 +98,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
     {
         this(sc,dataParts,originalRD,originalRD);
     }
-
+    
     /**
      * @param sc
      * @param dataParts
@@ -103,6 +106,18 @@ public class HpccRDD extends RDD<Row> implements Serializable
      * @param projectedRD 
     */
     public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD)
+    {
+        this(sc,dataParts,originalRD,originalRD,DEFAULT_CONNECTION_TIMEOUT,-1);
+    }
+
+    /**
+     * @param sc
+     * @param dataParts
+     * @param originalRD 
+     * @param projectedRD 
+     * @param limit 
+    */
+    public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD, int connectTimeout, int limit)
     {
         super(sc, new ArrayBuffer<Dependency<?>>(), CT_RECORD);
         this.parts = new InternalPartition[dataParts.length];
@@ -114,6 +129,8 @@ public class HpccRDD extends RDD<Row> implements Serializable
 
         this.originalRecordDef = originalRD;
         this.projectedRecordDef = projectedRD; 
+        this.connectionTimeout = connectTimeout;
+        this.recordLimit = limit;
     }
 
     /**
@@ -234,7 +251,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
         scala.collection.Iterator<Row> iter = null;
         try
         {
-            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, originalRD, new GenericRowRecordBuilder(projectedRD));
+            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, originalRD, new GenericRowRecordBuilder(projectedRD), connectionTimeout, recordLimit);
             ctx.addTaskCompletionListener(taskContext -> 
             {
                 if (fileReader != null)
@@ -262,7 +279,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
     public Seq<String> getPreferredLocations(Partition split)
     {
         final InternalPartition part = (InternalPartition) split;
-        return JavaConverters.asScalaBufferConverter(Arrays.asList(part.partition.getCopyLocations())).asScala().seq();
+        return JavaConverters.asScalaBufferConverter(Arrays.asList(part.partition.getCopyLocations()[0])).asScala().seq();
     }
 
     /* (non-Javadoc)

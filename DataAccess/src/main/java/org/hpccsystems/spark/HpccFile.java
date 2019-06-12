@@ -40,6 +40,8 @@ import org.hpccsystems.ws.client.utils.Connection;
 public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Serializable {
   static private final long serialVersionUID = 1L;
 
+  private int recordLimit = -1;
+
   // Make sure Python picklers have been registered
   static { EvaluatePython.registerPicklers(); }
 
@@ -91,6 +93,24 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
   }
 
   /**
+   * Set file part record limit
+   * @param limit
+   */
+  public void setFilePartRecordLimit(int limit)
+  {
+    this.recordLimit = limit;
+  }
+
+  /**
+   * Returns the current file part record limit
+   * @return
+   */
+  public int getFilePartRecordLimit()
+  {
+    return this.recordLimit;
+  }
+
+  /**
    * Make a Spark Resilient Distributed Dataset (RDD) that provides access
    * to THOR based datasets. Uses existing SparkContext, allows this function
    * to be used from PySpark.
@@ -108,7 +128,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    * @throws HpccFileException When there are errors reaching the THOR data
    */
   public HpccRDD getRDD(SparkContext sc) throws HpccFileException {
-	  return new HpccRDD(sc, getFileParts(), this.getRecordDefinition(), this.getProjectedRecordDefinition());
+	  return new HpccRDD(sc, getFileParts(), this.getRecordDefinition(), this.getProjectedRecordDefinition(), this.getFileAccessExpirySecs(), this.recordLimit);
   }
   /**
    * Make a Spark Dataframe (Dataset<Row>) of THOR data available.
@@ -120,7 +140,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
     FieldDef originalRD = this.getRecordDefinition();
     FieldDef projectedRD = this.getProjectedRecordDefinition();
     DataPartition[] fp = this.getFileParts();
-    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, originalRD, projectedRD)).toJavaRDD();
+    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, originalRD, projectedRD, this.getFileAccessExpirySecs(), this.recordLimit)).toJavaRDD();
 
     StructType schema = null;
     try {
