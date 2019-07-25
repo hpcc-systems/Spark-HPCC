@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.hpccsystems</groupId>
     <artifactId>spark-hpcc</artifactId>
-    <version>7.4.4</version>
+    <version>7.4.6-SNAPSHOT</version>
     <name>spark-hpcc</name>
     <description>RDD for reading files residing in an HPCC cluster environment</description>
     <url>https://hpccsystems.com</url>
@@ -148,17 +148,17 @@
         <dependency>
             <groupId>org.hpccsystems</groupId>
             <artifactId>commons-hpcc</artifactId>
-            <version>1.4.4</version>
+            <version>1.4.6-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.hpccsystems</groupId>
             <artifactId>wsclient</artifactId>
-            <version>7.4.4</version>
+            <version>7.4.6-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.hpccsystems</groupId>
             <artifactId>dfsclient</artifactId>
-            <version>7.4.4</version>
+            <version>7.4.6-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>net.razorvine</groupId>
