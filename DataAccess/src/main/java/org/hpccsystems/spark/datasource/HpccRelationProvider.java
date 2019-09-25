@@ -84,7 +84,7 @@ public class HpccRelationProvider implements RelationProvider, CreatableRelation
             // Attempt to open the new file
             return createRelation(sqlContext, parameters);
         }
-        catch (Exception | ArrayOfEspExceptionWrapper e)
+        catch (Exception e)
         {
             String error = "Unable to save file to HPCC with error: " + e.getMessage();
             log.error(error);
