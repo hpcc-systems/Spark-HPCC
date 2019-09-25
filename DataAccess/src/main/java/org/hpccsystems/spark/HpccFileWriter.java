@@ -41,6 +41,7 @@ import org.hpccsystems.ws.client.HPCCWsDFUClient;
 import org.hpccsystems.ws.client.utils.Connection;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUCreateFileWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFilePartWrapper;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileTypeWrapper;
 import org.hpccsystems.spark.SparkSchemaTranslator;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.function.Function2;
@@ -339,7 +340,7 @@ public class HpccFileWriter implements Serializable
         FieldDef recordDef = SparkSchemaTranslator.toHPCCRecordDef(schema);
         String eclRecordDefn = RecordDefinitionTranslator.toECLRecord(recordDef);
         boolean isCompressed = fileCompression != CompressionAlgorithm.NONE;
-        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed);
+        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed, DFUFileTypeWrapper.Flat, null);
 
         DFUFilePartWrapper[] dfuFileParts = createResult.getFileParts();
         DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts,
