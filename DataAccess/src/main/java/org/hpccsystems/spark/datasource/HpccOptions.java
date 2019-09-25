@@ -13,6 +13,7 @@ public class HpccOptions
     public String               fileName       = null;
     public String               projectList    = null;
     public CompressionAlgorithm compression    = CompressionAlgorithm.DEFAULT;
+    public String               filterString   = null;
     public int                  expirySeconds  = 120;
     public int                  filePartLimit  = -1;
 
@@ -105,5 +106,11 @@ public class HpccOptions
                 }
             }
         }
+
+        if (parameters.containsKey("filter"))
+        {
+            filterString = (String) parameters.get("filter");
+        }
+
     }
 }
