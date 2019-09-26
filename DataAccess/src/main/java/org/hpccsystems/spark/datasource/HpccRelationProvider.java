@@ -10,7 +10,6 @@ import org.apache.spark.sql.sources.CreatableRelationProvider;
 import org.apache.spark.sql.sources.DataSourceRegister;
 import org.apache.spark.sql.sources.RelationProvider;
 
-import org.hpccsystems.spark.datasource.*;
 import org.hpccsystems.ws.client.wrappers.ArrayOfEspExceptionWrapper;
 import org.hpccsystems.spark.HpccFileWriter;
 
@@ -84,7 +83,7 @@ public class HpccRelationProvider implements RelationProvider, CreatableRelation
             // Attempt to open the new file
             return createRelation(sqlContext, parameters);
         }
-        catch (Exception | ArrayOfEspExceptionWrapper e)
+        catch (Exception e)
         {
             String error = "Unable to save file to HPCC with error: " + e.getMessage();
             log.error(error);
