@@ -41,6 +41,7 @@ import org.hpccsystems.ws.client.utils.Connection;
 import org.hpccsystems.ws.client.wrappers.ArrayOfEspExceptionWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUCreateFileWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFilePartWrapper;
+import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileTypeWrapper;
 import org.hpccsystems.spark.SparkSchemaTranslator;
 import org.apache.log4j.Logger;
 import org.apache.spark.api.java.function.Function2;
@@ -61,7 +62,7 @@ public class HpccFileWriter implements Serializable
 
     // Transient so Java serialization does not try to serialize this
     private transient HPCCWsDFUClient dfuClient             = null;
-    private transient Connection connectionInfo             = null;
+    private transient Connection      connectionInfo        = null;
 
     private static void registerPicklingFunctions()
     {
@@ -219,8 +220,8 @@ public class HpccFileWriter implements Serializable
     * @throws Exception
      * @throws ArrayOfEspExceptionWrapper
     */
-    public long saveToHPCC(StructType schema, RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
-            throws Exception, ArrayOfEspExceptionWrapper
+    public long saveToHPCC(StructType schema, RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
+            boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
     {
         JavaRDD<Row> rdd = JavaRDD.fromRDD(scalaRDD, ClassTag$.MODULE$.apply(Row.class));
         return this.saveToHPCC(SparkContext.getOrCreate(), schema, rdd, clusterName, fileName, fileCompression, overwrite);
@@ -257,8 +258,8 @@ public class HpccFileWriter implements Serializable
     * @throws Exception
      * @throws ArrayOfEspExceptionWrapper
     */
-    public long saveToHPCC(StructType schema, JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
-            throws Exception, ArrayOfEspExceptionWrapper
+    public long saveToHPCC(StructType schema, JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
+            boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
     {
         return this.saveToHPCC(SparkContext.getOrCreate(), schema, javaRDD, clusterName, fileName, fileCompression, overwrite);
     }
@@ -331,8 +332,8 @@ public class HpccFileWriter implements Serializable
     * @throws Exception
      * @throws ArrayOfEspExceptionWrapper
     */
-    public long saveToHPCC(SparkContext sc, StructType rddSchema, JavaRDD<Row> rdd, String clusterName, String fileName, CompressionAlgorithm fileCompression,
-            boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
+    public long saveToHPCC(SparkContext sc, StructType rddSchema, JavaRDD<Row> rdd, String clusterName, String fileName,
+            CompressionAlgorithm fileCompression, boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
     {
         this.dfuClient = HPCCWsDFUClient.get(this.connectionInfo);
 
@@ -351,7 +352,8 @@ public class HpccFileWriter implements Serializable
         FieldDef recordDef = SparkSchemaTranslator.toHPCCRecordDef(schema);
         String eclRecordDefn = RecordDefinitionTranslator.toECLRecord(recordDef);
         boolean isCompressed = fileCompression != CompressionAlgorithm.NONE;
-        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed);
+        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed,
+                DFUFileTypeWrapper.Flat, null);
 
         DFUFilePartWrapper[] dfuFileParts = createResult.getFileParts();
         DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts,
@@ -517,26 +519,26 @@ public class HpccFileWriter implements Serializable
                 precision = DecimalType.MAX_PRECISION();
             }
 
-            type = DataTypes.createDecimalType(precision,scale);
+            type = DataTypes.createDecimalType(precision, scale);
         }
         else if (obj instanceof List)
         {
-            List<Object> list= (List<Object>) obj;
+            List<Object> list = (List<Object>) obj;
             if (list.size() == 0)
             {
-                throw new Exception("Unable to infer row schema. Encountered an empty List: " + name
-                    + ". All lists must have an example row to infer schema.");
+                throw new Exception(
+                        "Unable to infer row schema. Encountered an empty List: " + name + ". All lists must have an example row to infer schema.");
             }
 
             Object firstChild = list.get(0);
             if (firstChild instanceof PySparkField)
             {
-                List<PySparkField> rowFields = (List<PySparkField>)(List<?>) list;
+                List<PySparkField> rowFields = (List<PySparkField>) (List<?>) list;
                 type = generateRowSchema(rowFields);
             }
             else
             {
-                StructField childField = generateSchemaField("temp",firstChild);
+                StructField childField = generateSchemaField("temp", firstChild);
                 type = DataTypes.createArrayType(childField.dataType());
                 nullable = true;
             }
@@ -544,7 +546,7 @@ public class HpccFileWriter implements Serializable
         else
         {
             throw new Exception("Encountered unsupported type: " + obj.getClass().getName()
-                + ". Ensure that the entire example row hierarchy has been converted to a Dictionary. Including rows in child datasets.");
+                    + ". Ensure that the entire example row hierarchy has been converted to a Dictionary. Including rows in child datasets.");
         }
 
         return new StructField(name, type, nullable, empty);
