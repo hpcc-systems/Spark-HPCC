@@ -107,7 +107,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
     */
     public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD)
     {
-        this(sc,dataParts,originalRD,originalRD,DEFAULT_CONNECTION_TIMEOUT,-1);
+        this(sc,dataParts,originalRD,projectedRD,DEFAULT_CONNECTION_TIMEOUT,-1);
     }
 
     /**
