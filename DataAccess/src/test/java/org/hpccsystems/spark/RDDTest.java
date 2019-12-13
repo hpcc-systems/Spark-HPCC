@@ -1,122 +1,236 @@
 package org.hpccsystems.spark;
 
-import java.io.BufferedReader;
-//
-import java.io.InputStreamReader;
 import java.util.Arrays;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.Row;
-
 import org.hpccsystems.commons.ecl.FieldDef;
-import org.hpccsystems.dfs.cluster.RemapInfo;
 import org.hpccsystems.dfs.client.DataPartition;
-import org.hpccsystems.ws.client.utils.Connection;
+import org.hpccsystems.ws.client.platform.test.BaseRemoteTest;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.experimental.categories.Category;
 
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
-
 /**
- * Test from to test RDD by reading the data and writing it to the console.
+ * Junit tests for RDD.
  *
  */
-public class RDDTest {
-  public static void main(String[] args) throws Exception {
-    BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-    SparkConf conf = new SparkConf().setAppName("Spark HPCC test");
-    conf.setMaster("local[2]");
-    System.out.print("Full path name to Spark: ");
-    System.out.flush();
-    String sparkHome = br.readLine();
-    conf.setSparkHome(sparkHome);
-    System.out.print("Full path to JAPI jar: ");
-    System.out.flush();
-    String japi_jar = br.readLine();
-    System.out.print("Full path to Spark-HPCC jar: ");
-    System.out.flush();
-    String this_jar = br.readLine();
-    // now have Spark inputs
-    java.util.List<String> jar_list = Arrays.asList(this_jar, japi_jar);
-    Seq<String> jar_seq = JavaConverters.iterableAsScalaIterableConverter(jar_list).asScala().toSeq();;
-    conf.setJars(jar_seq);
-    System.out.println("Spark configuration set");
-    SparkContext sc = new SparkContext(conf);
-    System.out.println("Spark context available");
-    System.out.println("Now need HPCC file information");
-    System.out.print("Enter EclWatch protocol: ");
-    System.out.flush();
-    String protocol = br.readLine();
-    System.out.print("Enter EclWatch ip: ");
-    System.out.flush();
-    String esp_ip = br.readLine();
-    System.out.print("Enter EclWatch port: ");
-    System.out.flush();
-    String port = br.readLine();
+@Category(RemoteTests.class)
+public class RDDTest extends BaseRemoteTest
+{
+    protected SparkConf conf = new SparkConf().setAppName("Spark/HPCC JUnit test");
+    protected SparkContext sc = null; //must be closed after every test
+    protected HpccFile hpccFile = null;
 
-    Connection espcon = new Connection(protocol, esp_ip, port);
+    protected String sparkRuntimePath       = System.getProperty("sparkruntimepath");
+    protected String japiRuntimePath        = System.getProperty("japiruntimepath");
+    protected String sparkMaster            = System.getProperty("sparkmaster");
+    protected String sparkhpccconnectorpath = System.getProperty("sparkhpccconnectorpath");
+    protected String hpccfilename           = System.getProperty("hpccfilename");
+    protected String hpccfilecluster        = System.getProperty("hpccfilecluster");
+    protected String projectList            = System.getProperty("projectlist");
+    protected String keyFilter              = System.getProperty("keyFilter");
 
-    System.out.print("Enter HPCC file name: ");
-    System.out.flush();
-    String testName = br.readLine();
-    System.out.print("Enter HPCC file cluster name(mythor,etc.): ");
-    System.out.flush();
-    String fileclustername = br.readLine();
-    System.out.print("Enter EclWatch User ID: ");
-    System.out.flush();
+    public static final String DEFAULTHPCCFILENAME = "benchmark::all_types::200kb";
 
-    espcon.setUserName(br.readLine());
-
-    System.out.print("Enter EclWatch Password: ");
-    System.out.flush();
-
-    espcon.setPassword(br.readLine());
-
-    HpccFile hpccFile = new HpccFile(testName, espcon);
-
-    if (fileclustername.length() != 0)
-        hpccFile.setTargetfilecluster(fileclustername);
-
-    System.out.print("Enter Project Field list or empty: ");
-    System.out.flush();
-    String fieldList = br.readLine();
-    if (fieldList.length() != 0)
-        hpccFile.setProjectList(fieldList);
-
-    System.out.print("Enter Record filter expression (or empty): ");
-    System.out.flush();
-    String filterExpression = br.readLine();
-
-    if (filterExpression.length() != 0)
-        hpccFile.setFilter(filterExpression);
-
-    System.out.print("Number of nodes for remap (or empty): ");
-    System.out.flush();
-    String nodes = br.readLine();
-    String base_ip ="";
-    if (nodes.length() != 0)
+    static
     {
-      System.out.print("Base IP: ");
-      System.out.flush();
-      base_ip = br.readLine();
-      hpccFile.setClusterRemapInfo(new RemapInfo(Integer.parseInt(nodes), base_ip));
+        if (System.getProperty("hpccfilename") == null)
+            System.out.println("hpccfilename not provided - defaulting to '" + DEFAULTHPCCFILENAME + "'");
+
+        if (System.getProperty("hpccfilecluster") == null)
+            System.out.println("hpccfilecluster not provided - defaulting to 'null'");
+
+        if (System.getProperty("sparkRuntimePath") == null)
+            System.out.println("sparkruntimepath not provided - defaulting to ''");
+
+        if (System.getProperty("japiruntimepath") == null)
+            System.out.println("japiruntimepath not provided - defaulting to ''");
+
+        if (System.getProperty("sparkmaster") == null)
+        {
+            System.out.println("sparkmaster not provided - defaulting to 'local[2]'");
+            System.out.println("The master URL to connect to, such as \"local\" to run locally with one thread, \"local[4]\" to run locally with 4 cores, or \"spark://master:7077\" to run on a Spark standalone cluster.");
+        }
+
+        if (System.getProperty("sparkhpccconnectorpath") == null)
+            System.out.println("sparkhpccconnectorpath not provided - defaulting to ''");
+
+        if (System.getProperty("projectlist") == null)
+            System.out.println("projectlist not provided - defaulting to ''");
+
+        if (System.getProperty("keyfilter") == null)
+            System.out.println("keyfilter not provided - defaulting to ''");
+
+        if (System.getProperty("keyfilter") == null)
+            System.out.println("keyfilter not provided - defaulting to ''");
     }
 
-    System.out.println("Getting file parts");
-    DataPartition[] parts = hpccFile.getFileParts();
-    System.out.println("Getting record definition");
-    FieldDef rd = hpccFile.getRecordDefinition();
-    System.out.println(rd.toString());
-    System.out.println("Creating RDD");
-    HpccRDD myRDD = new HpccRDD(sc, parts, rd);
-    System.out.println("Getting local iterator");
-    scala.collection.Iterator<Row> rec_iter = myRDD.toLocalIterator();
-    while (rec_iter.hasNext()) {
-      Row rec = rec_iter.next();
-      System.out.println(rec.toString());
+    @Before
+    public void setUp() throws Exception
+    {
+        Assert.assertNotNull("Could not setup SPARK configuration", conf);
+        sparkMaster = System.getProperty("sparkmaster");
+
+        if (sparkMaster == null || sparkMaster.isEmpty())
+            sparkMaster = "local[2]";
+
+        conf.setMaster(sparkMaster);
+
+        if (sparkRuntimePath != null)
+            conf.setSparkHome(sparkRuntimePath);
+
+        // now have Spark inputs
+        java.util.List<String> jar_list = Arrays.asList(sparkhpccconnectorpath, japiRuntimePath);
+        Seq<String> runtimeJars = JavaConverters.iterableAsScalaIterableConverter(jar_list).asScala().toSeq();
+
+        conf.setJars(runtimeJars);
+
+        sc = new SparkContext(conf);
+        Assert.assertNotNull("Could not setup SPARK context", sc);
+
+        System.out.println("Spark context available");
+
+        if (hpccfilename == null || hpccfilename.isEmpty())
+            hpccfilename = DEFAULTHPCCFILENAME;
+
+        hpccFile = new HpccFile(hpccfilename, connection);
+        Assert.assertNotNull("Could not create hpccFile object");
+
+        if (hpccfilecluster != null && !hpccfilecluster.isEmpty())
+            hpccFile.setTargetfilecluster(hpccfilecluster);
+
+        if (projectList != null && !projectList.isEmpty())
+            hpccFile.setProjectList(projectList);
     }
-    System.out.println("Completed output of Record data");
-    System.out.println("End of run");
-  }
+
+    @After
+    public void teardown()
+    {
+        sc.stop();
+    }
+
+    @Test
+    public void simpleRDDTest()
+    {
+        System.out.println("\n----------Spark HPCC RDD Test----------");
+
+        try
+        {
+            try
+            {
+                if (keyFilter != null && !keyFilter.isEmpty())
+                    hpccFile.setFilter(keyFilter);
+            }
+            catch (Exception e)
+            {
+                Assert.fail("Failed setting filter: " + e.getLocalizedMessage());
+            }
+
+            System.out.println("Getting file parts");
+            DataPartition[] parts = hpccFile.getFileParts();
+            System.out.println();
+
+            FieldDef rd = hpccFile.getRecordDefinition();
+            System.out.println("Original record definition: " + rd.toString() + "\n");
+            System.out.println("Projected record definition: " + hpccFile.getProjectedRecordDefinition().toString() + "\n");
+
+            System.out.println("Creating RDD");
+            HpccRDD myRDD = new HpccRDD(sc, parts, rd, hpccFile.getProjectedRecordDefinition());
+
+            System.out.println("Getting local iterator");
+            scala.collection.Iterator<Row> rec_iter = myRDD.toLocalIterator();
+
+            int count = 0;
+            if (!rec_iter.isEmpty())
+            {
+                while (rec_iter.hasNext())
+                {
+                    count++;
+                    Row rec = rec_iter.next();
+                    System.out.println(rec.toString());
+                }
+            }
+
+            System.out.println("Completed output of Record data - Total records: " + count);
+            System.out.println("End of run");
+        }
+        catch (Exception e)
+        {
+            Assert.fail("SimpleRDDTest failed: " + e.getLocalizedMessage());
+        }
+    }
+
+    @Test
+    public void simpleRDDFilteredTest()
+    {
+        System.out.println("\n----------Spark HPCC RDD Filtered Tests----------");
+
+        try
+        {
+            try
+            {
+                hpccFile.setFilter("int8 = 45179");
+            }
+            catch (Exception e)
+            {
+                Assert.fail("Failed setting filter: " + e.getLocalizedMessage());
+            }
+
+            System.out.println("Getting file parts");
+            DataPartition[] parts = hpccFile.getFileParts();
+            System.out.println("Getting record definition");
+            FieldDef rd = hpccFile.getRecordDefinition();
+            System.out.println(rd.toString());
+            System.out.println("Creating RDD");
+            HpccRDD myRDD = new HpccRDD(sc, parts, rd);
+
+            System.out.println("Getting local iterator");
+            scala.collection.Iterator<Row> rec_iter = myRDD.toLocalIterator();
+
+            int count = 0;
+            if (!rec_iter.isEmpty())
+            {
+                while (rec_iter.hasNext())
+                {
+                    count++;
+                    Row rec = rec_iter.next();
+                    System.out.println(rec.toString());
+                }
+            }
+
+            System.out.println("Completed output of Record data - Total records: " + count);
+            System.out.println("End of run");
+        }
+        catch (Exception e)
+        {
+            Assert.fail("SimpleRDDTest failed: " + e.getLocalizedMessage());
+        }
+    }
+
+    @Test
+    public void multipleSetFilterTests()
+    {
+        System.out.println("\n----------Spark HPCC RDD Filtered Tests----------");
+        try
+        {
+            hpccFile.setFilter("int8 = 45179");
+            hpccFile.setFilter("int8 > 45179");
+            hpccFile.setFilter("int8 >= 45179");
+            hpccFile.setFilter("int8 <= 45179");
+            hpccFile.setFilter("int8 IN (45179, 45180)");
+            hpccFile.setFilter("int8 IN (45179, 45180) or int8 <= 45179");
+            hpccFile.setFilter("int8 IN (45179, 45180) AND int8 <= 45179");
+        }
+        catch (Exception e)
+        {
+            Assert.fail("Failed setting filter: " + e.getLocalizedMessage());
+        }
+    }
 }
