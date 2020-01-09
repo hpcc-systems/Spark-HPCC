@@ -15,7 +15,8 @@
  *******************************************************************************/
 package org.hpccsystems.spark;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.spark.sql.sources.And;
 import org.apache.spark.sql.sources.EqualNullSafe;
 import org.apache.spark.sql.sources.EqualTo;
@@ -38,7 +39,7 @@ import org.hpccsystems.commons.ecl.FileFilter;
 
 public class FileFilterConverter
 {
-    private static final Logger  log                 = Logger.getLogger(FileFilterConverter.class.getName());
+    private static final Logger  log                 = LogManager.getLogger(FileFilterConverter.class);
     private static final long serialVersionUID = 1L;
 
     public static FileFilter CovertToHPCCFileFilter(Filter [] sparkfilters) throws Exception

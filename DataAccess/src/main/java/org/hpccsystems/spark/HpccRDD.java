@@ -33,7 +33,8 @@ import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.execution.python.EvaluatePython;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.types.StructType;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import org.hpccsystems.dfs.client.DataPartition;
 import org.hpccsystems.dfs.client.HpccRemoteFileReader;
@@ -54,7 +55,7 @@ import net.razorvine.pickle.Unpickler;
 public class HpccRDD extends RDD<Row> implements Serializable
 {
     private static final long          serialVersionUID = 1L;
-    private static final Logger        log              = Logger.getLogger(HpccRDD.class.getName());
+    private static final Logger        log              = LogManager.getLogger(HpccRDD.class);
     private static final ClassTag<Row> CT_RECORD        = ClassTag$.MODULE$.apply(Row.class);
 
     public static int                  DEFAULT_CONNECTION_TIMEOUT = 120;

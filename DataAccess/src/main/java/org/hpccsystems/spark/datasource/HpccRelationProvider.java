@@ -18,11 +18,12 @@ import scala.collection.immutable.Map;
 
 import java.util.TreeMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class HpccRelationProvider implements RelationProvider, CreatableRelationProvider, DataSourceRegister
 {
-    private static Logger log = Logger.getLogger(HpccRelationProvider.class.getName());
+    private static Logger log = LogManager.getLogger(HpccRelationProvider.class);
 
     @Override
     public String shortName()
