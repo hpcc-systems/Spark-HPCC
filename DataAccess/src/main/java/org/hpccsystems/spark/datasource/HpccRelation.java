@@ -2,7 +2,8 @@ package org.hpccsystems.spark.datasource;
 
 import org.hpccsystems.spark.datasource.*;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.Row;
@@ -17,7 +18,7 @@ import org.hpccsystems.spark.SparkSchemaTranslator;
 
 public class HpccRelation extends BaseRelation implements PrunedFilteredScan
 {
-    private static Logger log        = Logger.getLogger(HpccRelation.class.getName());
+    private static Logger log        = LogManager.getLogger(HpccRelation.class);
 
     private HpccFile      file       = null;
     private SQLContext    sqlContext = null;

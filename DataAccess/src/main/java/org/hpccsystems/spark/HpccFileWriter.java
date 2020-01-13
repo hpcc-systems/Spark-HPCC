@@ -43,7 +43,8 @@ import org.hpccsystems.ws.client.wrappers.wsdfu.DFUCreateFileWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFilePartWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileTypeWrapper;
 import org.hpccsystems.spark.SparkSchemaTranslator;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.apache.spark.api.java.function.Function2;
 import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaRDD;
@@ -58,7 +59,7 @@ public class HpccFileWriter implements Serializable
 {
     static private final long         serialVersionUID      = 1L;
     static private final int          DefaultExpiryTimeSecs = 300;
-    static private final Logger       log                   = Logger.getLogger(HpccFileWriter.class.getName());
+    static private final Logger       log                   = LogManager.getLogger(HpccFileWriter.class);
 
     // Transient so Java serialization does not try to serialize this
     private transient HPCCWsDFUClient dfuClient             = null;
