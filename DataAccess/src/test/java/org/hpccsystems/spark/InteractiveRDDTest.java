@@ -15,10 +15,16 @@ import org.hpccsystems.ws.client.utils.Connection;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
+import org.junit.Ignore;
+
 /**
  * Test from to test RDD by reading the data and writing it to the console.
  *
+ * Ignore for test suite, run manually
+ *
  */
+
+@Ignore
 public class InteractiveRDDTest
 {
     public static void main(String[] args) throws Exception

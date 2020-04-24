@@ -16,6 +16,9 @@ import org.hpccsystems.ws.client.utils.Connection;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
+import org.junit.experimental.categories.Category;
+
+@Category(org.hpccsystems.commons.annotations.RemoteTests.class)
 public class DataframeTest {
 
   public DataframeTest() {
