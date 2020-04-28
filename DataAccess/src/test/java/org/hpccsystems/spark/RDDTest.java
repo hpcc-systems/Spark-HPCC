@@ -21,7 +21,8 @@ import scala.collection.Seq;
  * Junit tests for RDD.
  *
  */
-@Category(RemoteTests.class)
+
+@Category(org.hpccsystems.commons.annotations.RemoteTests.class)
 public class RDDTest extends BaseRemoteTest
 {
     protected SparkConf conf = new SparkConf().setAppName("Spark/HPCC JUnit test");
