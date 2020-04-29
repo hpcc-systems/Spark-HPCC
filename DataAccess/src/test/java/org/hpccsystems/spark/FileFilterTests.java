@@ -29,6 +29,9 @@ import org.hpccsystems.commons.ecl.FileFilter;
 import org.junit.Before;
 import org.junit.Test;
 
+import org.junit.experimental.categories.Category;
+
+@Category(org.hpccsystems.commons.annotations.BaseTests.class)
 public class FileFilterTests
 {
 
