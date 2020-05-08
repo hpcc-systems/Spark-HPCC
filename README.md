@@ -1,3 +1,5 @@
+![HPCC Spark Connector Nightly](https://github.com/hpcc-systems/spark-hpcc/workflows/HPCC%20Spark%20Connector%20Nightly/badge.svg)
+
 # Spark-HPCC
 Spark classes for working with HPCC clusters
 
