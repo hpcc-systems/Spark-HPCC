@@ -14,7 +14,7 @@
     </license>
   </licenses>
   <properties>
-    <sonatype.staging.version>1.6.7</sonatype.staging.version>
+    <sonatype.staging.version>1.6.8</sonatype.staging.version>
     <maven.surefire.version>2.22.1</maven.surefire.version>
     <maven.gpg.version>1.6</maven.gpg.version>
     <maven.gpg.skip>true</maven.gpg.skip>
@@ -134,12 +134,12 @@
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
         <artifactId>nexus-staging-maven-plugin</artifactId>
-        <version>1.6.7</version>
+        <version>${sonatype.staging.version}</version>
         <extensions>true</extensions>
         <configuration>
           <serverId>ossrh</serverId>
           <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-          <autoReleaseAfterClose>false</autoReleaseAfterClose>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
         </configuration>
       </plugin>
       <plugin>
