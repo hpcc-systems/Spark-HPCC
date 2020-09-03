@@ -14,7 +14,8 @@
     </license>
   </licenses>
   <properties>
-    <sonatype.staging.version>1.6.7</sonatype.staging.version>
+    <sonatype.staging.version>1.6.8</sonatype.staging.version>
+    <sonatype.staging.autorelease>false</sonatype.staging.autorelease>
     <maven.surefire.version>2.22.1</maven.surefire.version>
     <maven.gpg.version>1.6</maven.gpg.version>
     <maven.gpg.skip>true</maven.gpg.skip>
@@ -134,12 +135,12 @@
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
         <artifactId>nexus-staging-maven-plugin</artifactId>
-        <version>1.6.7</version>
+        <version>${sonatype.staging.version}</version>
         <extensions>true</extensions>
         <configuration>
           <serverId>ossrh</serverId>
           <nexusUrl>https://oss.sonatype.org/</nexusUrl>
-          <autoReleaseAfterClose>false</autoReleaseAfterClose>
+          <autoReleaseAfterClose>${sonatype.staging.autorelease}</autoReleaseAfterClose>
         </configuration>
       </plugin>
       <plugin>
@@ -193,12 +194,15 @@
     </profile>
     <profile>
       <id>release</id>
+      <properties>
+        <sonatype.staging.autorelease>true</sonatype.staging.autorelease>
+      </properties>
       <build>
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-source-plugin</artifactId>
-            <version>2.2.1</version>
+            <version>${maven.source.version}</version>
             <executions>
               <execution>
                 <id>attach-sources</id>
@@ -211,7 +215,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
-            <version>2.9.1</version>
+            <version>${maven.javadoc.version}</version>
             <executions>
               <execution>
                 <id>attach-javadocs</id>
@@ -224,7 +228,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.5</version>
+            <version>${maven.gpg.version}</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
@@ -292,6 +296,7 @@
     <profile>
       <id>jenkins-release</id>
       <properties>
+        <sonatype.staging.autorelease>true</sonatype.staging.autorelease>
         <maven.gpg.skip>false</maven.gpg.skip>
         <groups>org.hpccsystems.commons.annotations.BaseTests</groups>
       </properties>
