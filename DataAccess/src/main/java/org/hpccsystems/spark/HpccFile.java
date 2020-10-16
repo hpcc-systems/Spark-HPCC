@@ -52,7 +52,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    *
    * @param fileName The HPCC file name
    * @param espconninfo The ESP connection info (protocol,address,port,user,pass)
-   * @throws HpccFileException
+   * @throws HpccFileException hpcc file exection
    */
   public HpccFile(String fileName, Connection espconninfo) throws HpccFileException
   {
@@ -66,7 +66,10 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    *
    * @param fileName The HPCC file name
    * @param connectionString to eclwatch. Format: {http|https}://{HOST}:{PORT}.
-   * @throws HpccFileException
+   * @param user username
+   * @param pass password
+   * @throws MalformedURLException Malformed URL exception
+   * @throws HpccFileException hpcc file exception
    */
   public HpccFile(String fileName, String connectionString, String user, String pass) throws MalformedURLException, HpccFileException
   {
@@ -79,13 +82,14 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    * the address information for the THOR nodes to visible addresses
    * when the THOR clusters are virtual.
    * @param fileName The HPCC file name
+   * @param espconninfo esp connection information object
    * @param targetColumnList a comma separated list of column names in dotted
    * notation for columns within compound columns.
    * @param filter a file filter to select records of interest
    * @param remap_info address and port re-mapping info for THOR cluster
    * @param maxParts optional the maximum number of partitions or zero for no max
    * @param targetfilecluster optional - the hpcc cluster the target file resides in
-   * @throws HpccFileException
+   * @throws HpccFileException hpcc file exception
    */
   public HpccFile(String fileName, Connection espconninfo, String targetColumnList, String filter, RemapInfo remap_info, int maxParts, String targetfilecluster) throws HpccFileException
   {
@@ -94,7 +98,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
 
   /**
    * Set file part record limit
-   * @param limit
+   * @param limit fire part record limit
    */
   public void setFilePartRecordLimit(int limit)
   {
@@ -103,7 +107,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
 
   /**
    * Returns the current file part record limit
-   * @return
+   * @return returns file part record limit
    */
   public int getFilePartRecordLimit()
   {
@@ -131,7 +135,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
 	  return new HpccRDD(sc, getFileParts(), this.getRecordDefinition(), this.getProjectedRecordDefinition(), this.getFileAccessExpirySecs(), this.recordLimit);
   }
   /**
-   * Make a Spark Dataframe (Dataset<Row>) of THOR data available.
+   * Make a Spark Dataframe (Dataset (Row)) of THOR data available.
    * @param session the Spark Session object
    * @return a Dataframe of THOR data
    * @throws HpccFileException when htere are errors reaching the THOR data.

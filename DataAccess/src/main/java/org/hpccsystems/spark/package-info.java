@@ -27,7 +27,7 @@
  * <li>HpccPart implements the Spark Partition interface.</li>
  * <li>HpccFile is the metadata for a file on an HPCC THOR cluster.</li>
  * <li>HpccFileException is the general exception class.</li>
- * <li>HpccRDD extends RDD<Record> class for Spark.</li>
+ * <li>HpccRDD extends RDD(Record) class for Spark.</li>
  * <li>HpccRemoteFileReader is the facade for the type of file reader.</li>
  * <li>Record is the container class holding the data for a record from THOR.</li>
  * </ul>
