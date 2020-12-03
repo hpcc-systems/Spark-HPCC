@@ -90,7 +90,9 @@ public class SparkSchemaTranslator
 
     /**
     * translate a FieldDef into a StructField object of the schema
-    * @return
+    * @param recordDef field definition
+    * @return datatype from fields
+    * @throws Exception general exception
     */
     public static StructType toSparkSchema(FieldDef recordDef) throws Exception
     {
