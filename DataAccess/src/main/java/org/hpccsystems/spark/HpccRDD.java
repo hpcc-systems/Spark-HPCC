@@ -49,7 +49,7 @@ import scala.reflect.ClassTag$;
 import net.razorvine.pickle.Unpickler;
 
 /**
- * The implementation of the RDD<GenericRowWithSchema>
+ * The implementation of the RDD(GenericRowWithSchema)
  *
  */
 public class HpccRDD extends RDD<Row> implements Serializable
@@ -91,9 +91,9 @@ public class HpccRDD extends RDD<Row> implements Serializable
     }
 
     /**
-     * @param sc
-     * @param dataParts
-     * @param originalRD 
+     * @param sc spark context
+     * @param dataParts data parts
+     * @param originalRD original record definition
     */
     public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD)
     {
@@ -101,10 +101,10 @@ public class HpccRDD extends RDD<Row> implements Serializable
     }
     
     /**
-     * @param sc
-     * @param dataParts
-     * @param originalRD 
-     * @param projectedRD 
+     * @param sc spark context
+     * @param dataParts data parts
+     * @param originalRD original record definition
+     * @param projectedRD projected record definition
     */
     public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD)
     {
@@ -112,11 +112,12 @@ public class HpccRDD extends RDD<Row> implements Serializable
     }
 
     /**
-     * @param sc
-     * @param dataParts
-     * @param originalRD 
-     * @param projectedRD 
-     * @param limit 
+     * @param sc spark context
+     * @param dataParts data parts
+     * @param originalRD original record definition
+     * @param projectedRD projected record definition
+     * @param connectTimeout connection timeout
+     * @param limit file limit
     */
     public HpccRDD(SparkContext sc, DataPartition[] dataParts, FieldDef originalRD, FieldDef projectedRD, int connectTimeout, int limit)
     {
@@ -148,8 +149,8 @@ public class HpccRDD extends RDD<Row> implements Serializable
      * Transform to an RDD of labeled points for MLLib supervised learning.
      * @param labelName the field name of the label datg
      * @param dimNames the field names for the dimensions
-     * @throws IllegalArgumentException
-     * @return
+     * @throws IllegalArgumentException illegal argument exception
+     * @return RDD vector object
      */
     public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames) throws IllegalArgumentException
     {
@@ -189,8 +190,8 @@ public class HpccRDD extends RDD<Row> implements Serializable
     /**
      * Transform to mllib.linalg.Vectors for ML Lib machine learning.
      * @param dimNames the field names for the dimensions
-     * @throws IllegalArgumentException
-     * @return
+     * @throws IllegalArgumentException illegal argument exception
+     * @return RDD vector object
      */
     public RDD<Vector> makeMLLibVector(String[] dimNames) throws IllegalArgumentException
     {

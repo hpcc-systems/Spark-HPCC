@@ -86,10 +86,10 @@ public class HpccFileWriter implements Serializable
     /**
     * HpccFileWriter Constructor
     * Attempts to open a connection to the specified HPCC cluster and validates the user.
-    * @param connectionString of format {http|https}://{HOST}:{PORT}. Host & port are the same as the ecl watch host & port.
+    * @param connectionString of format {http|https}://{HOST}:{PORT}. Host and port are the same as the ecl watch host and port.
     * @param user a valid ecl watch account
     * @param pass the password for the provided user
-    * @throws Exception
+    * @throws Exception general exception
     */
     public HpccFileWriter(String connectionString, String user, String pass) throws Exception
     {
@@ -129,8 +129,8 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception, ArrayOfEspExceptionWrapper
     {
@@ -147,8 +147,8 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(StructType schema, RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception, ArrayOfEspExceptionWrapper
     {
@@ -164,8 +164,8 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception, ArrayOfEspExceptionWrapper
     {
@@ -181,8 +181,8 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception
     */
     public long saveToHPCC(StructType schema, JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception, ArrayOfEspExceptionWrapper
     {
@@ -197,9 +197,10 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @param fileCompression compression algorithm to use on files
+    * @param overwrite overwrite flag
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
             throws Exception, ArrayOfEspExceptionWrapper
@@ -217,9 +218,10 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @param fileCompression compression algorithm to use on files
+    * @param overwrite overwrite flag
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(StructType schema, RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
             boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
@@ -236,9 +238,10 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @param fileCompression compression algorithm to use on files
+    * @param overwrite overwrite flag
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression, boolean overwrite)
             throws Exception, ArrayOfEspExceptionWrapper
@@ -255,9 +258,10 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @param fileCompression compression algorithm to use on files
+    * @param overwrite overwrite flag
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(StructType schema, JavaRDD<Row> javaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
             boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
@@ -274,8 +278,8 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName) throws Exception, ArrayOfEspExceptionWrapper
     {
@@ -292,8 +296,8 @@ public class HpccFileWriter implements Serializable
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(SparkContext sc, JavaRDD<Row> javaRDD, String clusterName, String fileName) throws Exception, ArrayOfEspExceptionWrapper
     {
@@ -305,13 +309,14 @@ public class HpccFileWriter implements Serializable
     * Note: PySpark datasets can be written to HPCC by first calling inferSchema to generate a valid Java Schema
     * and converting the PySpark RDD to a JavaRDD via the _py2java() helper
     * @param sc The current SparkContext
-    * @param RDD The RDD to save to HPCC
+    * @param scalaRDD The RDD to save to HPCC
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @param fileCompression compression algorithm to use on files
+    * @param overwrite overwrite flag
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(SparkContext sc, RDD<Row> scalaRDD, String clusterName, String fileName, CompressionAlgorithm fileCompression,
             boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
@@ -325,13 +330,15 @@ public class HpccFileWriter implements Serializable
     * Note: PySpark datasets can be written to HPCC by first calling inferSchema to generate a valid Java Schema
     * and converting the PySpark RDD to a JavaRDD via the _py2java() helper
     * @param sc The current SparkContext
-    * @param scalaRDD The RDD to save to HPCC
+    * @param rddSchema rdd schema
+    * @param rdd java rdd row
     * @param clusterName The name of the cluster to save to.
     * @param fileName The name of the logical file in HPCC to create. Follows HPCC file name conventions.
     * @param fileCompression compression algorithm to use on files
+    * @param overwrite ovewrite flag
     * @return Returns the number of records written
-    * @throws Exception
-     * @throws ArrayOfEspExceptionWrapper
+    * @throws Exception general exception
+     * @throws ArrayOfEspExceptionWrapper array of esp exception wrapper
     */
     public long saveToHPCC(SparkContext sc, StructType rddSchema, JavaRDD<Row> rdd, String clusterName, String fileName,
             CompressionAlgorithm fileCompression, boolean overwrite) throws Exception, ArrayOfEspExceptionWrapper
@@ -435,11 +442,11 @@ public class HpccFileWriter implements Serializable
     }
 
     /**
-    * Generates an inferred schema based on an example Map of FieldNames -> Example Field Objects.
+    * Generates an inferred schema based on an example Map of FieldNames to Example Field Objects.
     * This function is targeted primary at helping PySpark users write datasets back to HPCC.
-    * @param rowDictionary row dictionary used for inferrence
+    * @param exampleFields list of python spark fields
     * @return Returns a valid Spark schema based on the example rowDictionary
-    * @throws Exception
+    * @throws Exception general exception
     */
     public StructType inferSchema(List<PySparkField> exampleFields) throws Exception
     {
