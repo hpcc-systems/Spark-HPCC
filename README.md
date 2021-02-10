@@ -1,5 +1,8 @@
 ![HPCC Spark Connector Nightly](https://github.com/hpcc-systems/spark-hpcc/workflows/HPCC%20Spark%20Connector%20Nightly/badge.svg)
 
+##### Current Maven Central Releases:
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc/badge.svg?subject=spark-hpcc)](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc)
+
 # Spark-HPCC
 Spark classes for working with HPCC clusters
 
