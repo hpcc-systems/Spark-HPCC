@@ -2,14 +2,8 @@ package org.hpccsystems.spark;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 
-import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
-import org.apache.spark.rdd.RDD;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SQLContext;
-import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.sources.EqualTo;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.GreaterThan;
@@ -28,7 +22,6 @@ import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.experimental.categories.Category;
 
 public class HpccRelationTest extends BaseRemoteTest
 {
@@ -53,22 +46,22 @@ public class HpccRelationTest extends BaseRemoteTest
 
         unsupportedSparkFilters.add(new IsNull("something"));
         unsupportedSparkFilters.add(new Or(new LessThan("int8", 12), new GreaterThan("int4", 8)));
-        supportedSparkFilters.add(new Not(new Or(new LessThan("int8", 12), new GreaterThan("int8", 8))));
+        unsupportedSparkFilters.add(new Not(new Or(new LessThan("int8", 12), new GreaterThan("int8", 8))));
         unsupportedSparkFilters.add(new Not(new In("int8", new Object [] { 1, 2, 3, 4, 5.6})));
         unsupportedSparkFilters.add(new StringContains("somestring", "some"));
         unsupportedSparkFilters.add(new StringEndsWith("somestring", "ing"));
 
-        TreeMap<String, String> paramTreeMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-        paramTreeMap.put("host", connString);
-        paramTreeMap.put("path", DEFAULTHPCCFILENAME);
-        paramTreeMap.put("cluster", thorClusterFileGroup);//thor_160
-        paramTreeMap.put("username", hpccUser);
-        paramTreeMap.put("password", hpccPass);
-
-        hpccopts = new HpccOptions(paramTreeMap);
-        SparkConf sparkconf = new SparkConf();
-        sparkconf.setMaster(sparkMaster).setAppName("SPARKHPCCJUnit");
-        sparkcontext = new SparkContext(sparkconf);
+//        TreeMap<String, String> paramTreeMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+//        paramTreeMap.put("host", connString);
+//        paramTreeMap.put("path", DEFAULTHPCCFILENAME);
+//        paramTreeMap.put("cluster", thorClusterFileGroup);//thor_160
+//        paramTreeMap.put("username", hpccUser);
+//        paramTreeMap.put("password", hpccPass);
+//
+//        hpccopts = new HpccOptions(paramTreeMap);
+//        SparkConf sparkconf = new SparkConf();
+//        sparkconf.setMaster(sparkMaster).setAppName("SPARKHPCCJUnit");
+//        sparkcontext = new SparkContext(sparkconf);
     }
 
 //    @Test
