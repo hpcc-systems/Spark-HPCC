@@ -1,8 +1,10 @@
 package org.hpccsystems.spark.datasource;
 
-import org.hpccsystems.spark.datasource.*;
-
 import org.apache.logging.log4j.Logger;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 
 import org.apache.spark.rdd.RDD;
@@ -12,7 +14,8 @@ import org.apache.spark.sql.sources.BaseRelation;
 import org.apache.spark.sql.sources.Filter;
 import org.apache.spark.sql.sources.PrunedFilteredScan;
 import org.apache.spark.sql.types.StructType;
-
+import org.hpccsystems.commons.ecl.FileFilter;
+import org.hpccsystems.spark.FileFilterConverter;
 import org.hpccsystems.spark.HpccFile;
 import org.hpccsystems.spark.SparkSchemaTranslator;
 
@@ -88,7 +91,20 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
     @Override
     public Filter[] unhandledFilters(Filter[] filters)
     {
-        return filters;
+        List<Filter> unhandledFilters = new ArrayList<Filter>();
+        for (Filter filter : filters)
+        {
+            try
+            {
+                FileFilter filefilter = FileFilterConverter.ConvertToHPCCFileFilterString(filter); //somewhat expensive action
+                if (filefilter != null && !filefilter.isEmpty())
+                    continue;
+            }
+            catch (Exception e) {}
+            unhandledFilters.add(filter);
+        }
+
+        return unhandledFilters.toArray(new Filter[0]);
     }
 
     @Override
@@ -103,6 +119,20 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
             {
                 file = new HpccFile(options.fileName, options.connectionInfo);
                 file.setFileAccessExpirySecs(options.expirySeconds);
+            }
+
+            if (filters != null && filters.length != 0)
+            {
+                try
+                {
+                    FileFilter filefilter = FileFilterConverter.CovertToHPCCFileFilter(filters);
+                    if (filefilter != null && !filefilter.isEmpty())
+                        file.setFilter(filefilter);
+                }
+                catch (Exception e)
+                {
+                    log.error("Could not apply filter(s) to File '" + file.getFileName() + "': " + e.getLocalizedMessage() );
+                }
             }
 
             file.setFilePartRecordLimit(options.filePartLimit);
