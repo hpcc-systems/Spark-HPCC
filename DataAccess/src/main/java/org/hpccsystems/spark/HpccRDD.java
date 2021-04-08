@@ -26,9 +26,6 @@ import org.apache.spark.Partition;
 import org.apache.spark.SparkContext;
 import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.mllib.linalg.DenseVector;
-import org.apache.spark.mllib.linalg.Vector;
-import org.apache.spark.mllib.regression.LabeledPoint;
 import org.apache.spark.rdd.RDD;
 import org.apache.spark.sql.execution.python.EvaluatePython;
 import org.apache.spark.sql.Row;
@@ -143,87 +140,6 @@ public class HpccRDD extends RDD<Row> implements Serializable
     {
         JavaRDD<Row> jRDD = new JavaRDD<Row>(this, CT_RECORD);
         return jRDD;
-    }
-
-    /**
-     * Transform to an RDD of labeled points for MLLib supervised learning.
-     * @param labelName the field name of the label datg
-     * @param dimNames the field names for the dimensions
-     * @throws IllegalArgumentException illegal argument exception
-     * @return RDD vector object
-     */
-    public RDD<LabeledPoint> makeMLLibLabeledPoint(String labelName, String[] dimNames) throws IllegalArgumentException
-    {
-        StructType schema = null;
-        try
-        {
-            schema = SparkSchemaTranslator.toSparkSchema(this.projectedRecordDef);
-        }
-        catch (Exception e)
-        {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-
-        // Precompute indices for the requested fields
-        // Throws illegal argument exception if field cannot be found
-        int labelIndex = schema.fieldIndex(labelName);
-        int[] dimIndices = new int[dimNames.length];
-        for (int i = 0; i < dimIndices.length; i++)
-        {
-            dimIndices[i] = schema.fieldIndex(dimNames[i]);
-        }
-
-        // Map each row to a labeled point using the precomputed indices
-        JavaRDD<Row> jRDD = this.asJavaRDD();
-        return jRDD.map((row) ->
-        {
-            double label = row.getDouble(labelIndex);
-            double[] dims = new double[dimIndices.length];
-            for (int i = 0; i < dimIndices.length; i++)
-            {
-                dims[i] = row.getDouble(dimIndices[i]);
-            }
-            return new LabeledPoint(label, new DenseVector(dims));
-        }).rdd();
-    }
-
-    /**
-     * Transform to mllib.linalg.Vectors for ML Lib machine learning.
-     * @param dimNames the field names for the dimensions
-     * @throws IllegalArgumentException illegal argument exception
-     * @return RDD vector object
-     */
-    public RDD<Vector> makeMLLibVector(String[] dimNames) throws IllegalArgumentException
-    {
-        StructType schema = null;
-        try
-        {
-            schema = SparkSchemaTranslator.toSparkSchema(this.projectedRecordDef);
-        }
-        catch (Exception e)
-        {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-
-        // Precompute indices for the requested fields
-        // Throws illegal argument exception if field cannot be found
-        int[] dimIndices = new int[dimNames.length];
-        for (int i = 0; i < dimIndices.length; i++)
-        {
-            dimIndices[i] = schema.fieldIndex(dimNames[i]);
-        }
-
-        // Map each row to a vector using the precomputed indices
-        JavaRDD<Row> jRDD = this.asJavaRDD();
-        return jRDD.map((row) ->
-        {
-            double[] dims = new double[dimIndices.length];
-            for (int i = 0; i < dimIndices.length; i++)
-            {
-                dims[i] = row.getDouble(dimIndices[i]);
-            }
-            return (Vector) new DenseVector(dims);
-        }).rdd();
     }
 
     /* (non-Javadoc)
