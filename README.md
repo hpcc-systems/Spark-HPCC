@@ -9,23 +9,23 @@ Spark classes for HPCC Systems/ Spark interoperability
 
 This repository is comprised of two projects, DataAccess and Examples.
 
-###DataAccess
+### DataAccess
 The DataAccess project contains the classes which expose distributed
 streaming of HPCC based data via Spark constructs. In addition,
 the HPCC data is exposed as a Dataframe for the convenience of the Spark developer.
 
-####Dependancies
+#### Dependancies
 The spark-hpcc target jar does not package any of the Spark libraries it depends on.
 If using a standard Spark submission pipeline such as spark-submit these dependencies will be provided as part of the Spark installation.
 However, if your pipeline executes a jar directly you may need to add the Spark libraries from your $SPARK_HOME to the classpath.
 
-###Examples
+### Examples
 The Examples project contains examples in Scala for
 using HPCC THOR cluster based data in a Machine
 Learning application.
 
-##Please note:
-#####As reported by github:
+## Please note:
+##### As reported by github:
 
 "In all versions of Apache Spark, its standalone resource manager accepts code to execute on a 'master' host, that then runs that code on 'worker' hosts. The master itself does not, by design, execute user code. A specially-crafted request to the master can, however, cause the master to execute code too. Note that this does not affect standalone clusters with authentication enabled. While the master host typically has less outbound access to other resources than a worker, the execution of code on the master is nevertheless unexpected.
 Mitigation
