@@ -123,6 +123,13 @@
               </goals>
             </execution>
           </executions>
+          <configuration>
+            <doclint>none</doclint>
+            <additionalparam>-Xdoclint:none</additionalparam>
+            <header>Copyright &copy; 2021 HPCC Systems&reg;. All rights reserved</header>
+            <footer>Copyright &copy; 2021 HPCC Systems&reg;. All rights reserved</footer>
+            <includeDependencySources>true</includeDependencySources>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
