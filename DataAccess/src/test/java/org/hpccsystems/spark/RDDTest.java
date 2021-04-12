@@ -80,7 +80,7 @@ public class RDDTest extends BaseRemoteTest
         sparkMaster = System.getProperty("sparkmaster");
 
         if (sparkMaster == null || sparkMaster.isEmpty())
-            sparkMaster = "local[2]";
+            sparkMaster = "local[*]";
 
         conf.setMaster(sparkMaster);
 
@@ -114,7 +114,8 @@ public class RDDTest extends BaseRemoteTest
     @After
     public void teardown()
     {
-        sc.stop();
+        if (sc != null)
+            sc.stop();
     }
 
     @Test
