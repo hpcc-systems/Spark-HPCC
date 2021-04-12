@@ -1,9 +1,6 @@
 # Spark-HPCC/DataAccess
-Spark classes for working with HPCC clusters
+Spark-based classes for HPCC Systems/ Spark interoperability
 
-This is an early release version.
+HPCC Systems platform target runtime must be 7.x or newer
 
-You must be running on a 7.x platform version.
-
-You also need a 2.x-release version of the JAPI wsclient jar,
-which can be built from the current master branch.
+HPCC4J wsclient, dfsclient, and commons-hpcc build dependencies must be 7.x or newer.
