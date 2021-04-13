@@ -1,6 +1,5 @@
 package org.hpccsystems.spark.datasource;
 
-import java.util.Map;
 import java.util.TreeMap;
 
 import org.hpccsystems.dfs.client.CompressionAlgorithm;
@@ -112,5 +111,15 @@ public class HpccOptions
             filterString = (String) parameters.get("filter");
         }
 
+    }
+
+    @Override
+    public String toString()
+    {
+        String tostring = "[Connection: '" +  connectionInfo + "', " + "clusterName: '" + clusterName;
+        tostring += "', fileName: '" + fileName + "', projectList: '" + projectList + "', compression: '" + compression + "',";
+        tostring += "filterString: '" + filterString + "', " + "expirySeconds: '" + expirySeconds + "', filePartLimit: '" + filePartLimit + "']";
+
+        return tostring;
     }
 }
