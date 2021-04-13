@@ -14,10 +14,12 @@
  *     limitations under the License.
  *******************************************************************************/
 /**
- * Spark access to data residing in an HPCC environment.
- * The JAPI class library from HPCCSystems is used to used to access
- * the wsECL services to obtain the location and layout of the file.  An
- * RDD is provided to read the file in parallel by file part.
+ * Provides access to data residing in HPCC Systems or Spark environments.
+ *
+ * The DFSClient from HPCC Systems is used to used to access
+ * HPCC Systems data files' metadata including the location and layout of the file, and
+ * also requests data file access privilages.
+ * An RDD is provided to read the file in parallel by file part.
  *
  * The main classes are:
  * <ul>
