@@ -55,6 +55,9 @@ import org.apache.spark.sql.execution.python.EvaluatePython;
 
 import net.razorvine.pickle.Unpickler;
 
+/**
+ * A helper class that creates a job in Spark that writes a given RDD to HPCC Systems.
+ */
 public class HpccFileWriter implements Serializable
 {
     static private final long         serialVersionUID      = 1L;

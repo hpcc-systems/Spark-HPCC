@@ -46,7 +46,7 @@ import scala.reflect.ClassTag$;
 import net.razorvine.pickle.Unpickler;
 
 /**
- * The implementation of the RDD(GenericRowWithSchema)
+ * The implementation of the RDD(GenericRowWithSchema) that allows reading a Dataset from HPCC Systems.
  *
  */
 public class HpccRDD extends RDD<Row> implements Serializable

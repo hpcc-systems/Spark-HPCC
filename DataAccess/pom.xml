@@ -25,7 +25,7 @@
     <maven.compiler.target>1.8</maven.compiler.target>
     <spark.runtime.version>2.4.6</spark.runtime.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <javadoc.excludePackageNames></javadoc.excludePackageNames>
+    <javadoc.excludePackageNames>net.razorvine.*:org.apache.*:org.hpccsystems.commons.*:org.hpccsystems.generated.*:org.hpccsystems.dfs.*:org.hpccsystems.ws.*:org.hpccsystems.ws.client.antlr.*</javadoc.excludePackageNames>
     <groups>org.hpccsystems.commons.annotations.BaseTests</groups>
   </properties>
   <scm>
@@ -125,6 +125,7 @@
           </executions>
           <configuration>
             <doclint>none</doclint>
+            <excludePackageNames>${javadoc.excludePackageNames}</excludePackageNames>
             <additionalparam>-Xdoclint:none</additionalparam>
             <header>Copyright &copy; 2021 HPCC Systems&reg;. All rights reserved</header>
             <footer>Copyright &copy; 2021 HPCC Systems&reg;. All rights reserved</footer>
