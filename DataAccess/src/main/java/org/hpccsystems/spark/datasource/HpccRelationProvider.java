@@ -21,6 +21,9 @@ import java.util.TreeMap;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
+/**
+ * Registers HPCC Systems as a DataSource. Allows reading of a dataset in HPCC Systems and writing a new dataset to HPCC Systems.
+ */
 public class HpccRelationProvider implements RelationProvider, CreatableRelationProvider, DataSourceRegister
 {
     private static Logger log = LogManager.getLogger(HpccRelationProvider.class);

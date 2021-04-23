@@ -24,6 +24,9 @@ import org.hpccsystems.commons.ecl.FieldType;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.*;
 
+/**
+ * An implementation of IRecordAccessor that allows IRecordWriter to access Spark GenericRows.
+ */
 public class GenericRowRecordAccessor implements IRecordAccessor
 {
     private GenericRowWithSchema row                  = null;
