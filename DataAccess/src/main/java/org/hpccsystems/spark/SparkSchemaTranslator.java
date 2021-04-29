@@ -21,6 +21,9 @@ import org.hpccsystems.commons.ecl.HpccSrcType;
 
 import org.apache.spark.sql.types.*;
 
+/**
+ * A helper class that translates an HPCC Systems record defintion to a Spark Schema.
+ */
 public class SparkSchemaTranslator
 {   
     private static StructField toSchemaElement(FieldDef field) throws Exception

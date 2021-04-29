@@ -19,6 +19,9 @@ import org.hpccsystems.spark.FileFilterConverter;
 import org.hpccsystems.spark.HpccFile;
 import org.hpccsystems.spark.SparkSchemaTranslator;
 
+/**
+ * Represents a dataset in HPCC Systems with a known schema.
+ */
 public class HpccRelation extends BaseRelation implements PrunedFilteredScan
 {
     private static Logger log        = LogManager.getLogger(HpccRelation.class);

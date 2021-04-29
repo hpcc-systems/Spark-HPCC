@@ -5,6 +5,9 @@ import java.util.TreeMap;
 import org.hpccsystems.dfs.client.CompressionAlgorithm;
 import org.hpccsystems.ws.client.utils.Connection;
 
+/**
+ * A helper class that extracts options from the key value pairs provided by Spark.
+ */
 public class HpccOptions
 {
     public Connection           connectionInfo = null;

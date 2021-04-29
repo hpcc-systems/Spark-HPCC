@@ -37,6 +37,11 @@ import org.hpccsystems.commons.ecl.FieldFilter;
 import org.hpccsystems.commons.ecl.FieldFilterRange;
 import org.hpccsystems.commons.ecl.FileFilter;
 
+/**
+ * A helper class that translates Spark Filters into an HPCC Systems FileFilter.
+ * 
+ * HPCC Systems FileFilter does not support all possible Spark Filters. In these cases an exception will be thrown.
+ */
 public class FileFilterConverter
 {
     private static final Logger  log                 = LogManager.getLogger(FileFilterConverter.class);

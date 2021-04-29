@@ -23,6 +23,9 @@ import org.hpccsystems.commons.ecl.FieldType;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.*;
 
+/**
+ * An implementation of IRecordBuilder that allows IRecordReader to create Spark GenericRows.
+ */
 public class GenericRowRecordBuilder implements IRecordBuilder
 {
     private Object[]            fields              = null;
