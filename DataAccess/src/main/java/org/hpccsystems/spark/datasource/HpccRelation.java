@@ -162,4 +162,50 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
 
         return ret;
     }
+
+    public boolean equals(Object rhs)
+    {
+        if (rhs instanceof HpccRelation)
+        {
+            HpccRelation otherRelation = (HpccRelation) rhs;
+            HpccOptions otherOptions = otherRelation.options;
+            
+            boolean nameMatches = otherOptions.fileName.equals(options.fileName);
+
+            boolean projectListMatches = true;
+            if (otherOptions.projectList != null)
+            {
+                if (options.projectList != null)
+                {
+                    projectListMatches = otherOptions.projectList.equals(options.projectList);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            // The filter string can be overriden during buildScan, but this will only lead to
+            // false negatives. So we don't have to worry about that.
+            boolean filterStringMatches = true;
+            if (otherOptions.filterString != null)
+            {
+                if (options.filterString != null)
+                {
+                    otherOptions.filterString.equals(options.filterString);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+
+            boolean hostMatches = options.connectionInfo.getHost().equals(otherOptions.connectionInfo.getHost());
+            boolean filePartLimitMatches = otherOptions.filePartLimit == options.filePartLimit;
+
+            return hostMatches && nameMatches && projectListMatches && filterStringMatches && filePartLimitMatches;
+        }
+
+        return false;
+    }
 }
