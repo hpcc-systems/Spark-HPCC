@@ -1,5 +1,5 @@
 ![Nightly Build](https://github.com/hpcc-systems/spark-hpcc/workflows/HPCC%20Spark%20Connector%20Nightly/badge.svg)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc/badge.svg?subject=spark-hpcc)](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc) [![javadoc](https://javadoc-badge.appspot.com/org.hpccsystems/spark-hpcc.svg?label=javadoc)](https://javadoc-badge.appspot.com/org.hpccsystems/spark-hpcc)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc/badge.svg?subject=spark-hpcc)](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc)
 
 # Spark-HPCC
 Spark classes for HPCC Systems/ Spark interoperability
