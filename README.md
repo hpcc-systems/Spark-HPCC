@@ -23,6 +23,28 @@
   </tbody>
 </table>
 
+<table>
+  <thead>
+    <tr>
+      <td align="left">
+        :zap: <b>Note:</b> This project references log4j which has been reported to include security vulnerabilitie(s) in versions prior to v2.15.0
+      </td>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        <ul>
+          <li>The Spark-HPCC project no longer references the offending log4j versions</li>
+          <li>Users of Spark-HPCC are strongly encouraged to update to the latest version</li>
+          <li>Learn more about the vulnerabiltiy: https://github.com/advisories/GHSA-jfh8-c2jp-5v3q</li>
+        </ul>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
 # Spark-HPCC
 Spark classes for HPCC Systems/ Spark interoperability
 
