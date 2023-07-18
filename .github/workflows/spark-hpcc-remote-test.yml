@@ -1,0 +1,126 @@
+name: Spark-HPCC Remote Test
+
+on:
+  push:
+    branches:
+      - "master"
+      - "candidate-*"
+  pull_request:
+    branches:
+      - "master"
+      - "candidate-*"
+
+  workflow_dispatch:
+
+jobs:
+  test-against-platform:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+          profile: ['spark33']
+
+    steps:
+
+    - name: Setup JDK 11
+      uses: actions/setup-java@v1
+      with:
+        java-version: 11
+
+    - name: Install K8s
+      uses: balchua/microk8s-actions@v0.3.2
+      with:
+        channel: '1.26/stable'
+        devMode: 'true'
+        addons: '["dns", "rbac", "hostpath-storage", "registry"]'
+
+    # Note: IP Address range below is the IP address range that will be made available for load balancers
+    # on the host machine, they aren't actual load balancers so they will not be accessible externally
+    - name: Enable LoadBalancers
+      run: |
+        sudo microk8s enable metallb:10.64.140.43-10.64.140.49
+
+    - name: Install JetStack Cert Manager
+      run: |
+        helm repo add jetstack https://charts.jetstack.io
+        helm repo update
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.11.0/cert-manager.crds.yaml
+        helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version v1.11.0
+
+    - name: Create Root Certificates
+      run: |
+        echo "[req]
+        default_bits           = 2048
+        default_keyfile        = ca.key
+        distinguished_name     = dn
+        prompt                 = no
+        x509_extensions        = x509_ca
+
+        [dn]
+        C                      = US
+        ST                     = GA
+        L                      = Alparetta
+        O                      = Lexis Nexis Risk
+        OU                     = Platform Development
+        CN                     = TestCluster
+        emailAddress           = support@lexisnexisrisk.com
+
+        [x509_ca]
+        basicConstraints=CA:true,pathlen:1" > ca-req.cfg
+        openssl req -x509 -newkey rsa:2048 -nodes -keyout ca.key -sha256 -days 1825 -out ca.crt -config ca-req.cfg
+        kubectl create secret tls hpcc-signing-issuer-key-pair --cert=ca.crt --key=ca.key
+        kubectl create secret tls hpcc-local-issuer-key-pair --cert=ca.crt --key=ca.key
+        sudo keytool -import -trustcacerts -cacerts -storepass changeit -noprompt -alias hpcc-local-issuer -file ca.crt
+
+    - name: Install HPCC Cluster
+      run: |
+        echo -e "certificates:\n  enabled: true\ndafilesrv:\n  - name: rowservice\n    disabled: false\n    application: stream\n    service:\n      servicePort: 7600\n      visibility: global" > values.yaml
+        helm repo add hpcc https://hpcc-systems.github.io/helm-chart
+        helm repo update
+        helm install myhpcc hpcc/hpcc --set global.image.version=latest -f values.yaml
+
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+
+    - name: Rebase
+      run: |
+        git config user.email 'hpccsystems@lexisnexisrisk.com'
+        git config user.name 'hpccsystems development'
+        git rebase origin/${{ github.event.pull_request.base.ref }}
+        git log --pretty=one -n 15
+
+    - name: Wait for ECLWatch Startup
+      run: |
+          kubectl wait --for=condition=ready pod --timeout=180s -l app=eclwatch
+          echo "ECLWATCH_IP=$(kubectl get svc eclwatch -o jsonpath='{.spec.clusterIP}')" >> $GITHUB_ENV
+          timeout 180s bash -c 'until kubectl get svc/rowservice --output=jsonpath="{.status.loadBalancer}" | grep "ingress"; do : ; done'
+          echo "ROWSERVICE_IP=$(kubectl get svc rowservice -o jsonpath='{.spec.clusterIP}')" >> $GITHUB_ENV
+
+    - name: Add Host File Entries
+      run: |
+        sudo -- sh -c -e "echo '${{ env.ECLWATCH_IP }} eclwatch.default' >> /etc/hosts";
+        sudo -- sh -c -e "echo '${{ env.ROWSERVICE_IP }} rowservice.default' >> /etc/hosts";
+        sudo -- sh -c -e "echo '${{ env.SQL_TO_ECL_IP }} sql2ecl.default' >> /etc/hosts";
+
+    # Notes:
+    # keytool -import -cacerts doesn't work as expected, need to specify the cacerts path explicitly
+    # Path changed between JDK 8 & 11, Command for JDK 8:
+    # sudo keytool -import -keystore $JAVA_HOME/jre/lib/security/cacerts -storepass changeit -noprompt -alias eclwatch-tls -file cert.der
+    - name: Trust Certs
+      run: |
+        openssl s_client -showcerts -connect eclwatch.default:8010 < /dev/null | openssl x509 -outform DER > cert.der
+        sudo keytool -import -keystore $JAVA_HOME/lib/security/cacerts -storepass changeit -noprompt -alias eclwatch-tls -file cert.der
+        openssl s_client -showcerts -connect rowservice.default:7600 < /dev/null | openssl x509 -outform DER > cert.der
+        sudo keytool -import -keystore $JAVA_HOME/lib/security/cacerts -storepass changeit -noprompt -alias dafilesrv-tls -file cert.der
+
+    # speed things up with caching from https://docs.github.com/en/actions/guides/building-and-testing-java-with-maven
+    - name: Cache Maven packages
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Build & Verify with Maven
+      run: mvn verify --file DataAccess/pom.xml -P spark33 -Dmaven.test.failure.ignore=false -Dhpccconn=https://eclwatch.default:8010 -Dthorclustername=data

@@ -4,7 +4,7 @@
   <artifactId>spark-hpcc</artifactId>
   <version>9.2.5-0-SNAPSHOT</version>
   <name>spark-hpcc</name>
-  <description>RDD for reading files residing in an HPCC cluster environment</description>
+  <description>Spark connector for reading files residing in an HPCC cluster environment</description>
   <url>https://hpccsystems.com</url>
   <licenses>
     <license>
@@ -16,7 +16,8 @@
   <properties>
     <sonatype.staging.version>1.6.8</sonatype.staging.version>
     <sonatype.staging.autorelease>false</sonatype.staging.autorelease>
-    <maven.surefire.version>2.22.1</maven.surefire.version>
+    <maven.surefire.version>3.1.2</maven.surefire.version>
+    <maven.failsafe.version>3.1.2</maven.failsafe.version>
     <maven.gpg.version>1.6</maven.gpg.version>
     <maven.gpg.skip>true</maven.gpg.skip>
     <maven.source.version>2.2.1</maven.source.version>
@@ -24,9 +25,10 @@
     <maven.compiler.version>3.8.0</maven.compiler.version>
     <maven.compiler.release>8</maven.compiler.release>
     <spark.runtime.version>2.4.6</spark.runtime.version>
+    <scala.binary.version>2.11</scala.binary.version>
+    <scala.version>2.11</scala.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javadoc.excludePackageNames>net.razorvine.*:org.apache.*:org.hpccsystems.commons.*:org.hpccsystems.generated.*:org.hpccsystems.dfs.*:org.hpccsystems.ws.*:org.hpccsystems.ws.client.antlr.*</javadoc.excludePackageNames>
-    <groups>org.hpccsystems.commons.annotations.BaseTests</groups>
   </properties>
   <scm>
     <connection>scm:git:https://github.com/hpcc-systems/Spark-HPCC.git</connection>
@@ -43,14 +45,34 @@
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-core_2.11</artifactId>
+      <artifactId>spark-core_${scala.binary.version}</artifactId>
       <version>${spark.runtime.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>xerces</groupId>
+          <artifactId>xercesImpl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>xerces</groupId>
+          <artifactId>xmlParserAPIs</artifactId>
+        </exclusion>
+      </exclusions>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_2.11</artifactId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <version>${spark.runtime.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>xerces</groupId>
+          <artifactId>xercesImpl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>xerces</groupId>
+          <artifactId>xmlParserAPIs</artifactId>
+        </exclusion>
+      </exclusions>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -63,16 +85,46 @@
       <groupId>org.hpccsystems</groupId>
       <artifactId>commons-hpcc</artifactId>
       <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4-runtime</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.hpccsystems</groupId>
       <artifactId>wsclient</artifactId>
       <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4-runtime</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.hpccsystems</groupId>
       <artifactId>dfsclient</artifactId>
       <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4-runtime</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.antlr</groupId>
+          <artifactId>antlr4</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>net.razorvine</groupId>
@@ -155,7 +207,28 @@
         <configuration>
           <argLine>${argLine}</argLine>
           <groups>${groups}</groups>
+          <excludes>
+            <exclude>*IntegrationTest.java</exclude>
+          </excludes>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-failsafe-plugin</artifactId>
+        <version>${maven.failsafe.version}</version>
+        <configuration>
+          <includes>
+            <include>**/*IntegrationTest.java</include>
+          </includes>
+        </configuration>
+        <executions>
+            <execution>
+                <goals>
+                    <goal>integration-test</goal>
+                    <goal>verify</goal>
+                </goals>
+            </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
@@ -202,6 +275,14 @@
     </plugins>
   </build>
   <profiles>
+    <profile>
+        <id>spark33</id>
+        <properties>
+            <scala.binary.version>2.12</scala.binary.version>
+            <scala.version>2.12.11</scala.version>
+            <spark.runtime.version>3.3.2</spark.runtime.version>
+        </properties>
+    </profile>
     <profile>
       <id>allow-snapshots</id>
       <activation>
@@ -365,6 +446,16 @@
             <configuration>
               <argLine>${argLine}</argLine>
               <groups>${groups}</groups>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>${maven.failsafe.version}</version>
+            <configuration>
+              <includes>
+                <include>**/*IntegrationTest.java</include>
+              </includes>
             </configuration>
           </plugin>
         </plugins>
