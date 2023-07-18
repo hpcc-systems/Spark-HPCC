@@ -21,8 +21,8 @@
     <maven.gpg.skip>true</maven.gpg.skip>
     <maven.source.version>2.2.1</maven.source.version>
     <maven.javadoc.version>3.1.0</maven.javadoc.version>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.version>3.8.0</maven.compiler.version>
+    <maven.compiler.release>8</maven.compiler.release>
     <spark.runtime.version>2.4.6</spark.runtime.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javadoc.excludePackageNames>net.razorvine.*:org.apache.*:org.hpccsystems.commons.*:org.hpccsystems.generated.*:org.hpccsystems.dfs.*:org.hpccsystems.ws.*:org.hpccsystems.ws.client.antlr.*</javadoc.excludePackageNames>
@@ -85,6 +85,13 @@
     <pluginManagement>
       <plugins>
         <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven.compiler.version}</version>
+          <configuration>
+            <release>${maven.compiler.release}</release>
+          </configuration>
+        </plugin>
+        <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
           <version>${maven.gpg.version}</version>
@@ -134,7 +141,14 @@
         </plugin>
       </plugins>
     </pluginManagement>
-    <plugins> 
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven.compiler.version}</version>
+        <configuration>
+          <release>${maven.compiler.release}</release>
+        </configuration>
+      </plugin>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven.surefire.version}</version>
