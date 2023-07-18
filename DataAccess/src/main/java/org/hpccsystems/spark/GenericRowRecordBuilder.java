@@ -1,13 +1,13 @@
 /*
  * ##############################################################################
- * 
+ *
  * HPCC SYSTEMS software Copyright (C) 2019 HPCC Systems®.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
@@ -20,6 +20,9 @@ import org.hpccsystems.dfs.client.IRecordBuilder;
 
 import org.hpccsystems.commons.ecl.FieldDef;
 import org.hpccsystems.commons.ecl.FieldType;
+
+import java.util.List;
+
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.*;
 
@@ -34,7 +37,7 @@ public class GenericRowRecordBuilder implements IRecordBuilder
 
     private GenericRowRecordBuilder[] childRecordBuilders = null;
 
-    public GenericRowRecordBuilder(FieldDef recordDef) throws IllegalArgumentException 
+    public GenericRowRecordBuilder(FieldDef recordDef) throws IllegalArgumentException
     {
         setRecordDefinition(recordDef);
     }
@@ -47,7 +50,7 @@ public class GenericRowRecordBuilder implements IRecordBuilder
         } catch (Exception e) {
             throw new IllegalArgumentException(e.getMessage());
         }
-        
+
         this.childRecordBuilders = new GenericRowRecordBuilder[this.fieldDef.getNumDefs()];
         for (int i = 0; i < this.fieldDef.getNumDefs(); i++)
         {
@@ -90,7 +93,23 @@ public class GenericRowRecordBuilder implements IRecordBuilder
 
     public void setFieldValue(int index, Object value) throws IllegalArgumentException, IllegalAccessException
     {
-        this.fields[index] = value;
+        FieldDef fd = this.fieldDef.getDef(index);
+        if (fd.getFieldType() == FieldType.DATASET || fd.getFieldType() == FieldType.SET)
+        {
+            if (value instanceof List)
+            {
+                List<Object> listVal = (List<Object>) value;
+                this.fields[index] = listVal.toArray();
+            }
+            else
+            {
+                this.fields[index] = new Object[0];
+            }
+        }
+        else
+        {
+            this.fields[index] = value;
+        }
     }
 
     public IRecordBuilder getChildRecordBuilder(int index)

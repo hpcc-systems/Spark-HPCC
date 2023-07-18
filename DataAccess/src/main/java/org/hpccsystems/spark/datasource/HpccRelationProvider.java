@@ -91,7 +91,7 @@ public class HpccRelationProvider implements RelationProvider, CreatableRelation
         {
             String error = "Unable to save file to HPCC with error: " + e.getMessage();
             log.error(error);
-            throw new RuntimeException(error);
+            throw new RuntimeException(error,e);
         }
     }
 
