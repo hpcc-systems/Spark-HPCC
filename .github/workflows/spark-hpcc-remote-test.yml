@@ -83,7 +83,8 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
-    - name: Rebase
+    - name: Rebase on Pull Requests
+      if: ${{ github.event_name == 'pull_request' }}
       run: |
         git config user.email 'hpccsystems@lexisnexisrisk.com'
         git config user.name 'hpccsystems development'
