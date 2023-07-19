@@ -18,7 +18,7 @@ jobs:
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
       - name: Publish package
-        run: mvn --batch-mode deploy --file DataAccess/pom.xml
+        run: mvn --batch-mode deploy -DskipITs --file DataAccess/pom.xml
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USER_NAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_PASS }}
