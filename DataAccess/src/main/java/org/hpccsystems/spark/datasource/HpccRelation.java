@@ -169,7 +169,7 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
         {
             HpccRelation otherRelation = (HpccRelation) rhs;
             HpccOptions otherOptions = otherRelation.options;
-            
+
             boolean nameMatches = otherOptions.fileName.equals(options.fileName);
 
             boolean projectListMatches = true;

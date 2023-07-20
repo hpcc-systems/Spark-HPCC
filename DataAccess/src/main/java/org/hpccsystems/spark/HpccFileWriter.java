@@ -364,7 +364,7 @@ public class HpccFileWriter implements Serializable
         String eclRecordDefn = RecordDefinitionTranslator.toECLRecord(recordDef);
         boolean isCompressed = fileCompression != CompressionAlgorithm.NONE;
         DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed,
-                DFUFileTypeWrapper.Flat, null);
+                DFUFileTypeWrapper.Flat, "");
 
         DFUFilePartWrapper[] dfuFileParts = createResult.getFileParts();
         DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts,
@@ -385,11 +385,11 @@ public class HpccFileWriter implements Serializable
 
         Function2<Integer, Iterator<Row>, Iterator<FilePartWriteResults>> writeFunc = (Integer partitionIndex, Iterator<Row> it) ->
         {
+            FilePartWriteResults result = new FilePartWriteResults();
             HpccFileWriter.registerPicklingFunctions();
             GenericRowRecordAccessor recordAccessor = new GenericRowRecordAccessor(recordDef);
             HPCCRemoteFileWriter<Row> fileWriter = new HPCCRemoteFileWriter<Row>(hpccPartitions[partitionIndex], recordDef, recordAccessor,
                     fileCompression);
-            FilePartWriteResults result = new FilePartWriteResults();
             try
             {
                 fileWriter.writeRecords(it);

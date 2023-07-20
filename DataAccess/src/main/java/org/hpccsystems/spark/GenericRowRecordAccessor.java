@@ -21,6 +21,10 @@ import org.hpccsystems.dfs.client.IRecordAccessor;
 import org.hpccsystems.commons.ecl.FieldDef;
 import org.hpccsystems.commons.ecl.FieldType;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.*;
 
@@ -85,7 +89,30 @@ public class GenericRowRecordAccessor implements IRecordAccessor
 
     public Object getFieldValue(int index)
     {
-        return this.row.get(index);
+        Object val = this.row.get(index);
+
+        FieldDef fd = this.fieldDef.getDef(index);
+        if (fd.getFieldType() == FieldType.DATASET || fd.getFieldType() == FieldType.SET)
+        {
+            if (val instanceof List)
+            {
+                return val;
+            }
+            else if (val instanceof Object[])
+            {
+                return Arrays.asList((Object[]) val);
+            }
+            else if (val instanceof scala.collection.Seq)
+            {
+                return scala.collection.JavaConversions.seqAsJavaList((scala.collection.Seq<Object>)val);
+            }
+
+            return new ArrayList<Object>();
+        }
+        else
+        {
+            return val;
+        }
     }
 
     public FieldDef getFieldDefinition(int index)
