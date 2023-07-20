@@ -306,6 +306,14 @@
         </properties>
     </profile>
     <profile>
+        <id>spark34</id>
+        <properties>
+            <scala.binary.version>2.12</scala.binary.version>
+            <scala.version>2.12.11</scala.version>
+            <spark.runtime.version>3.4.1</spark.runtime.version>
+        </properties>
+    </profile>
+    <profile>
       <id>release</id>
       <properties>
         <sonatype.staging.autorelease>true</sonatype.staging.autorelease>
