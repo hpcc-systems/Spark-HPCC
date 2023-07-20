@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-          profile: ['spark33']
+          profile: ['spark33', 'spark34']
 
     steps:
 
