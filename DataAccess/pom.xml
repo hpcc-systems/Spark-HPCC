@@ -317,6 +317,7 @@
       <id>release</id>
       <properties>
         <sonatype.staging.autorelease>true</sonatype.staging.autorelease>
+        <skipITs>true</skipITs>
       </properties>
       <build>
         <plugins>
@@ -418,6 +419,7 @@
       <id>jenkins-release</id>
       <properties>
         <sonatype.staging.autorelease>true</sonatype.staging.autorelease>
+        <skipITs>true</skipITs>
         <maven.gpg.skip>false</maven.gpg.skip>
         <groups>org.hpccsystems.commons.annotations.BaseTests</groups>
       </properties>
