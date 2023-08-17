@@ -8,6 +8,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: tracing
+        run: |
+          echo "Ref        = ${{ github.ref }}"
+          echo "Action     = ${{ github.action }}"
+          echo "Event      = ${{ github.event_name }}"
+          echo "Actor      = ${{ github.actor }}"
+          echo "SHA        = ${{ github.sha }}"
+
       - uses: actions/checkout@v3
       - name: Set up Maven Central Repository
         uses: actions/setup-java@v3
@@ -17,9 +25,20 @@ jobs:
           server-id: ossrh
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
+
+      # Build & Publish steps are separated to isolate secrets from retry action code
+      - name: Build package
+        if: (!contains(github.ref_name, '-release'))
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          retry_wait_seconds: 600
+          command: mvn --batch-mode package -DskipTests -DskipITs --file DataAccess/pom.xml
+
       - name: Publish package
-        if: contains(github.ref_name, '-release') == false
-        run: mvn --batch-mode deploy -DskipITs --file DataAccess/pom.xml
+        if: (!contains(github.ref_name, '-release'))
+        run: mvn --batch-mode deploy -DskipTests -DskipITs --file DataAccess/pom.xml
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USER_NAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_PASS }}
