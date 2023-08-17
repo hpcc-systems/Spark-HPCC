@@ -7,6 +7,14 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      - name: tracing
+        run: |
+          echo "Ref        = ${{ github.ref }}"
+          echo "Action     = ${{ github.action }}"
+          echo "Event      = ${{ github.event_name }}"
+          echo "Actor      = ${{ github.actor }}"
+          echo "SHA        = ${{ github.sha }}"
+
       - uses: actions/checkout@v3
       - name: Set up Maven Central Repository
         uses: actions/setup-java@v3
@@ -16,11 +24,22 @@ jobs:
           server-id: ossrh
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
-          gpg-private-key: ${{ secrets.SIGNING_SECRET }}
+          gpg-private-key: MAVEN_GPG_KEY
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      # Build & Publish steps are separated to isolate secrets from retry action code
+      - name: Build package
+        uses: nick-fields/retry@v2
+        with:
+          timeout_minutes: 15
+          max_attempts: 3
+          retry_wait_seconds: 600
+          command: mvn -Pjenkins-release -DskipTests package -e --file DataAccess/pom.xml
+
       - name: Publish package
-        run: mvn -Pjenkins-release -Dgpg.passphrase=${{ secrets.SIGN_MODULES_PASSPHRASE }} -DstagingProgressTimeoutMinutes=20 clean deploy -e --file DataAccess/pom.xml
+        run: mvn -Pjenkins-release -Dgpg.passphrase=${{ secrets.SIGN_MODULES_PASSPHRASE }} -DskipTests -DstagingProgressTimeoutMinutes=20 clean deploy -e --file DataAccess/pom.xml
         env:
           MAVEN_USERNAME: ${{ secrets.OSSRH_USER_NAME }}
           MAVEN_PASSWORD: ${{ secrets.OSSRH_PASS }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.SIGN_MODULES_PASSPHRASE }}
+          MAVEN_GPG_KEY: ${{ secrets.SIGNING_SECRET }}
