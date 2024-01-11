@@ -24,7 +24,7 @@ jobs:
           server-id: ossrh
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
-          gpg-private-key: MAVEN_GPG_KEY
+          gpg-private-key: ${{ secrets.SIGNING_SECRET }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       # Build & Publish steps are separated to isolate secrets from retry action code
