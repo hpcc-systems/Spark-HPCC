@@ -1,4 +1,3 @@
-![Nightly Build](https://github.com/hpcc-systems/spark-hpcc/workflows/HPCC%20Spark%20Connector%20Nightly/badge.svg)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc/badge.svg?subject=spark-hpcc)](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc)
 
 <table>
