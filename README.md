@@ -23,24 +23,20 @@
 </table>
 
 # Spark-HPCC
-Spark classes for HPCC Systems/ Spark interoperability
-
-This repository is comprised of two projects, DataAccess and Examples.
+Spark classes for HPCC Systems / Spark interoperability
 
 ### DataAccess
 The DataAccess project contains the classes which expose distributed
 streaming of HPCC based data via Spark constructs. In addition,
 the HPCC data is exposed as a Dataframe for the convenience of the Spark developer.
 
-#### Dependancies
+### Dependencies
 The spark-hpcc target jar does not package any of the Spark libraries it depends on.
 If using a standard Spark submission pipeline such as spark-submit these dependencies will be provided as part of the Spark installation.
 However, if your pipeline executes a jar directly you may need to add the Spark libraries from your $SPARK_HOME to the classpath.
 
-### Examples
-The Examples project contains examples in Scala for
-using HPCC THOR cluster based data in a Machine
-Learning application.
+### Examples & Documentation
+See: [Examples](https://github.com/hpcc-systems/Spark-HPCC/tree/master/Examples) for example usage of the connector as well as API documentation for the reading and writing APIs.
 
 ## Please note:
 ##### As reported by github:
