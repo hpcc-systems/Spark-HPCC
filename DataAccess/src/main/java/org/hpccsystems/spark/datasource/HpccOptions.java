@@ -18,6 +18,7 @@ public class HpccOptions
     public String               filterString   = null;
     public int                  expirySeconds  = 120;
     public int                  filePartLimit  = -1;
+    public boolean              useTLK         = false;
 
     public HpccOptions(TreeMap<String, String> parameters) throws Exception
     {
@@ -70,6 +71,12 @@ public class HpccOptions
         if (parameters.containsKey("projectlist"))
         {
             projectList = (String) parameters.get("projectlist");
+        }
+
+        if (parameters.containsKey("usetlk"))
+        {
+            String useTLKStr = (String) parameters.get("usetlk");
+            useTLK = Boolean.parseBoolean(useTLKStr.toLowerCase());
         }
 
         compression = CompressionAlgorithm.DEFAULT;
