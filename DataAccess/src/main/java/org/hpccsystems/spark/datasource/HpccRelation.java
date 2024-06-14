@@ -26,7 +26,7 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
 {
     private static Logger log        = LogManager.getLogger(HpccRelation.class);
 
-    private HpccFile      file       = null;
+    private HpccFile      hpccFile   = null;
     private SQLContext    sqlContext = null;
     private HpccOptions   options    = null;
 
@@ -34,6 +34,63 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
     {
         sqlContext = context;
         options = opts;
+    }
+
+    public HpccFile getFile()
+    {
+        if (hpccFile == null)
+        {
+            try
+            {
+                hpccFile = new HpccFile(options.fileName, options.connectionInfo);
+                hpccFile.setTargetfilecluster(options.clusterName);
+                hpccFile.setFileAccessExpirySecs(options.expirySeconds);
+                hpccFile.setUseTLK(options.useTLK);
+
+                if (options.projectList != null)
+                {
+                    hpccFile.setProjectList(options.projectList);
+                }
+            }
+            catch (Exception e)
+            {
+                String error = "Unable to construct HccFile with error: " + e.getMessage();
+                log.error(error);
+                throw new RuntimeException(error);
+            }
+
+            hpccFile.setFilePartRecordLimit(options.filePartLimit);
+
+            try
+            {
+                if (options.filterString != null)
+                {
+                    hpccFile.setFilter(options.filterString);
+                }
+            }
+            catch (Exception e)
+            {
+                String error = "Unable to set filter: " + options.filterString + " on HpccFile with error: " + e.getMessage();
+                log.error(error);
+                throw new RuntimeException(error);
+            }
+
+            try
+            {
+                if (options.projectList != null)
+                {
+                    hpccFile.setProjectList(options.projectList);
+                }
+            }
+            catch (Exception e)
+            {
+                String error = "Unable to set project list: " + options.projectList + " on HpccFile with error: " + e.getMessage();
+                log.error(error);
+                throw new RuntimeException(error);
+            }
+        }
+
+        return hpccFile;
     }
 
     @Override
@@ -45,25 +102,7 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
     @Override
     public StructType schema()
     {
-        if (file == null)
-        {
-            try
-            {
-                file = new HpccFile(options.fileName, options.connectionInfo);
-                file.setFileAccessExpirySecs(options.expirySeconds);
-
-                if (options.projectList != null)
-                {
-                    file.setProjectList(options.projectList);
-                }
-            }
-            catch (Exception e)
-            {
-                String error = "Unable to create HpccRDD with error: " + e.getMessage();
-                log.error(error);
-                throw new RuntimeException(error);
-            }
-        }
+        HpccFile file = getFile();
 
         StructType schema = null;
         try
@@ -118,11 +157,7 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
         RDD<Row> ret = null;
         try
         {
-            if (file == null)
-            {
-                file = new HpccFile(options.fileName, options.connectionInfo);
-                file.setFileAccessExpirySecs(options.expirySeconds);
-            }
+            HpccFile file = getFile();
 
             if (filters != null && filters.length != 0)
             {
@@ -138,18 +173,11 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
                 }
             }
 
-            file.setFilePartRecordLimit(options.filePartLimit);
-
             if (options.projectList != null)
             {
                 projectList = options.projectList;
             }
             file.setProjectList(projectList);
-
-            if (options.filterString != null)
-            {
-                file.setFilter(options.filterString);
-            }
 
             ret = file.getRDD(sqlContext.sparkContext());
         }
