@@ -47,6 +47,13 @@ public class HpccOptions
         if (parameters.containsKey("path"))
         {
             fileName = (String) parameters.get("path");
+
+            // Remove leading forward slashes
+            fileName = fileName.replaceAll("^/+", "");
+
+            String[] filePathParts = fileName.split("/|::");
+            fileName = String.join("::", filePathParts);
+
         }
 
         if (parameters.containsKey("cluster"))
