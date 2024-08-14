@@ -20,6 +20,9 @@ public class HpccOptions
     public int                  filePartLimit  = -1;
     public boolean              useTLK         = false;
 
+    public String               traceID        = "";
+    public String               spanID         = "";
+
     public HpccOptions(TreeMap<String, String> parameters) throws Exception
     {
         // Extract connection
@@ -128,6 +131,15 @@ public class HpccOptions
             filterString = (String) parameters.get("filter");
         }
 
+        if (parameters.containsKey("traceid"))
+        {
+            traceID = (String) parameters.get("traceid");
+        }
+
+        if (parameters.containsKey("spanid"))
+        {
+            spanID = (String) parameters.get("spanid");
+        }
     }
 
     @Override
