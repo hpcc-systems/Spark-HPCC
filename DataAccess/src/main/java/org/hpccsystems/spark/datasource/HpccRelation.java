@@ -103,7 +103,10 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
                 if (filefilter != null && !filefilter.isEmpty())
                     continue;
             }
-            catch (Exception e) {}
+            catch (Exception e)
+            {
+                log.warn("Unsupported filter: " + filter.toString() + " with error: " + e.getMessage());
+            }
             unhandledFilters.add(filter);
         }
 
@@ -135,6 +138,7 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
                 catch (Exception e)
                 {
                     log.error("Could not apply filter(s) to File '" + file.getFileName() + "': " + e.getLocalizedMessage() );
+                    throw new RuntimeException("Could not apply filter(s) to File '" + file.getFileName() + "': " + e.getLocalizedMessage());
                 }
             }
 
