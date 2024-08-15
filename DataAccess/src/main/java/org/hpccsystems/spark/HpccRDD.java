@@ -36,6 +36,9 @@ import org.apache.logging.log4j.LogManager;
 import org.hpccsystems.dfs.client.DataPartition;
 import org.hpccsystems.dfs.client.HpccRemoteFileReader;
 
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+
 import org.hpccsystems.commons.ecl.FieldDef;
 
 import scala.collection.JavaConverters;
@@ -56,6 +59,9 @@ public class HpccRDD extends RDD<Row> implements Serializable
     private static final ClassTag<Row> CT_RECORD        = ClassTag$.MODULE$.apply(Row.class);
 
     public static int                  DEFAULT_CONNECTION_TIMEOUT = 120;
+
+    private String                     parentTraceID = "";
+    private String                     parentSpanID = "";
 
     private InternalPartition[]        parts;
     private FieldDef                   originalRecordDef = null;
@@ -96,7 +102,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
     {
         this(sc,dataParts,originalRD,originalRD);
     }
-    
+
     /**
      * @param sc spark context
      * @param dataParts data parts
@@ -127,9 +133,20 @@ public class HpccRDD extends RDD<Row> implements Serializable
         }
 
         this.originalRecordDef = originalRD;
-        this.projectedRecordDef = projectedRD; 
+        this.projectedRecordDef = projectedRD;
         this.connectionTimeout = connectTimeout;
         this.recordLimit = limit;
+    }
+
+    /**
+     * Set the trace context for this RDD.
+     * @param parentTraceID
+     * @param parentSpanID
+     */
+    public void setTraceContext(String parentTraceID, String parentSpanID)
+    {
+        this.parentTraceID = parentTraceID;
+        this.parentSpanID = parentSpanID;
     }
 
     /**
@@ -159,7 +176,7 @@ public class HpccRDD extends RDD<Row> implements Serializable
             log.error("Original record defintion is null. Aborting.");
             return null;
         }
-        
+
         if (projectedRD == null)
         {
             log.error("Projected record defintion is null. Aborting.");
@@ -169,8 +186,26 @@ public class HpccRDD extends RDD<Row> implements Serializable
         scala.collection.Iterator<Row> iter = null;
         try
         {
-            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(this_part.partition, originalRD, new GenericRowRecordBuilder(projectedRD), connectionTimeout, recordLimit);
-            ctx.addTaskCompletionListener(taskContext -> 
+            Span sparkPartReadSpan = Utils.createChildSpan(parentTraceID, parentSpanID, "HpccRDD.Compute/Read_" + this_part.partition.getThisPart());
+
+            // Add taskID, stageID, stage attempt number, and task attempt number as attributes to the span
+            sparkPartReadSpan.setAttribute("task.id", ctx.taskAttemptId());
+            sparkPartReadSpan.setAttribute("task.attempt", ctx.attemptNumber());
+            sparkPartReadSpan.setAttribute("stage.id", ctx.stageId());
+            sparkPartReadSpan.setAttribute("stage.attempt", ctx.stageAttemptNumber());
+
+            // Defaulting to OK, to reduce state tracking complexity below. If an error occurs this will be overwritten
+            sparkPartReadSpan.setStatus(StatusCode.OK);
+
+            HpccRemoteFileReader.FileReadContext context = new HpccRemoteFileReader.FileReadContext();
+            context.originalRD = originalRD;
+            context.connectTimeout = connectionTimeout;
+            context.recordReadLimit = recordLimit;
+            context.parentSpan = sparkPartReadSpan;
+            final HpccRemoteFileReader<Row> fileReader = new HpccRemoteFileReader<Row>(context, this_part.partition, new GenericRowRecordBuilder(projectedRD));
+
+            // This will be called for both failure & success
+            ctx.addTaskCompletionListener(taskContext ->
             {
                 if (fileReader != null)
                 {
@@ -178,8 +213,25 @@ public class HpccRDD extends RDD<Row> implements Serializable
                     {
                         fileReader.close();
                     }
-                    catch(Exception e) {}
+                    catch(Exception e)
+                    {
+                        log.error("Error while attempting to close file reader: " + e.getMessage());
+                        sparkPartReadSpan.recordException(e);
+                    }
                 }
+
+                if (taskContext.isInterrupted())
+                {
+                    sparkPartReadSpan.setStatus(StatusCode.ERROR);
+                }
+
+                sparkPartReadSpan.end();
+            });
+
+            // This will be called before the above completion listener
+            ctx.addTaskFailureListener((TaskContext taskContext, Throwable error) -> {
+                sparkPartReadSpan.recordException(error);
+                sparkPartReadSpan.setStatus(StatusCode.ERROR);
             });
 
             iter = JavaConverters.asScalaIteratorConverter(fileReader).asScala();

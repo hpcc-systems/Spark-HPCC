@@ -32,13 +32,18 @@ import org.hpccsystems.commons.ecl.FieldDef;
 import org.hpccsystems.commons.errors.HpccFileException;
 import org.hpccsystems.ws.client.utils.Connection;
 
+import io.opentelemetry.api.trace.Span;
+
 /**
  * Access to file content on a collection of one or more HPCC
  * clusters.
  *
  */
-public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Serializable {
+public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Serializable
+{
   static private final long serialVersionUID = 1L;
+  private String parentTraceID = "";
+  private String parentSpanID = "";
 
   private int recordLimit = -1;
 
@@ -75,6 +80,7 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
   {
     super(fileName,connectionString,user,pass);
   }
+
   /**
    * Constructor for the HpccFile.
    * Captures HPCC logical file information from the DALI Server for the
@@ -94,6 +100,27 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
   public HpccFile(String fileName, Connection espconninfo, String targetColumnList, String filter, RemapInfo remap_info, int maxParts, String targetfilecluster) throws HpccFileException
   {
     super(fileName,espconninfo,targetColumnList,filter,remap_info,maxParts,targetfilecluster);
+  }
+
+  /**
+   * Set the opentelemetry trace context
+   * @param span the span to use for the trace context
+   */
+  public void setTraceContext(Span span)
+  {
+    this.parentTraceID = span.getSpanContext().getTraceId();
+    this.parentSpanID = span.getSpanContext().getSpanId();
+  }
+
+  /**
+   * Set the opentelemetry trace context
+   * @param parentTraceID hexadecimal trace id string
+   * @param parentSpanID hexadecimal span id string
+   */
+  public void setTraceContext(String parentTraceID, String parentSpanID)
+  {
+    this.parentTraceID = parentTraceID;
+    this.parentSpanID = parentSpanID;
   }
 
   /**
@@ -121,9 +148,11 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    * @return An RDD of THOR data.
    * @throws HpccFileException When there are errors reaching the THOR data
    */
-  public HpccRDD getRDD() throws HpccFileException {
+  public HpccRDD getRDD() throws HpccFileException
+  {
     return getRDD(SparkContext.getOrCreate());
   }
+
   /**
    * Make a Spark Resilient Distributed Dataset (RDD) that provides access
    * to THOR based datasets.
@@ -131,8 +160,11 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
    * @return An RDD of THOR data.
    * @throws HpccFileException When there are errors reaching the THOR data
    */
-  public HpccRDD getRDD(SparkContext sc) throws HpccFileException {
-	  return new HpccRDD(sc, getFileParts(), this.getRecordDefinition(), this.getProjectedRecordDefinition(), this.getFileAccessExpirySecs(), this.recordLimit);
+  public HpccRDD getRDD(SparkContext sc) throws HpccFileException
+  {
+	  HpccRDD rdd = new HpccRDD(sc, getFileParts(), this.getRecordDefinition(), this.getProjectedRecordDefinition(), this.getFileAccessExpirySecs(), this.recordLimit);
+    rdd.setTraceContext(parentTraceID, parentSpanID);
+    return rdd;
   }
   /**
    * Make a Spark Dataframe (Dataset (Row)) of THOR data available.
@@ -144,12 +176,18 @@ public class HpccFile extends org.hpccsystems.dfs.client.HPCCFile implements Ser
     FieldDef originalRD = this.getRecordDefinition();
     FieldDef projectedRD = this.getProjectedRecordDefinition();
     DataPartition[] fp = this.getFileParts();
-    JavaRDD<Row > rdd = (new HpccRDD(session.sparkContext(), fp, originalRD, projectedRD, this.getFileAccessExpirySecs(), this.recordLimit)).toJavaRDD();
+
+    HpccRDD hpccRDD = new HpccRDD(session.sparkContext(), fp, originalRD, projectedRD, this.getFileAccessExpirySecs(), this.recordLimit);
+    hpccRDD.setTraceContext(parentTraceID, parentSpanID);
+    JavaRDD<Row > rdd = (hpccRDD).toJavaRDD();
 
     StructType schema = null;
-    try {
+    try
+    {
       schema = SparkSchemaTranslator.toSparkSchema(projectedRD);
-    } catch(Exception e) {
+    }
+    catch(Exception e)
+    {
       throw new HpccFileException(e.getMessage());
     }
 

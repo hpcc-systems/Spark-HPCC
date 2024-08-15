@@ -42,6 +42,10 @@ import org.hpccsystems.ws.client.wrappers.ArrayOfEspExceptionWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUCreateFileWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFilePartWrapper;
 import org.hpccsystems.ws.client.wrappers.wsdfu.DFUFileTypeWrapper;
+
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+
 import org.hpccsystems.spark.SparkSchemaTranslator;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -67,6 +71,9 @@ public class HpccFileWriter implements Serializable
     // Transient so Java serialization does not try to serialize this
     private transient HPCCWsDFUClient dfuClient             = null;
     private transient Connection      connectionInfo        = null;
+
+    private String                    parentTraceID               = "";
+    private String                    parentSpanID                = "";
 
     private static void registerPicklingFunctions()
     {
@@ -96,6 +103,9 @@ public class HpccFileWriter implements Serializable
     */
     public HpccFileWriter(String connectionString, String user, String pass) throws Exception
     {
+        // Make sure we setup opentelemetry before HPCC4j
+        Utils.getOpenTelemetry();
+
         // Verify connection & password
         final Pattern connectionRegex = Pattern.compile("(http|https)://([^:]+):([0-9]+)", Pattern.CASE_INSENSITIVE);
         Matcher matches = connectionRegex.matcher(connectionString);
@@ -107,6 +117,17 @@ public class HpccFileWriter implements Serializable
         this.connectionInfo = new Connection(matches.group(1), matches.group(2), matches.group(3));
         this.connectionInfo.setUserName(user);
         this.connectionInfo.setPassword(pass);
+    }
+
+    /**
+     * Set the trace context for the current job
+     * @param parentTraceID
+     * @param parentSpanID
+     */
+    public void setTraceContext(String parentTraceID, String parentSpanID)
+    {
+        this.parentTraceID = parentTraceID;
+        this.parentSpanID = parentSpanID;
     }
 
     private void abortFileCreation()
@@ -363,8 +384,31 @@ public class HpccFileWriter implements Serializable
         FieldDef recordDef = SparkSchemaTranslator.toHPCCRecordDef(schema);
         String eclRecordDefn = RecordDefinitionTranslator.toECLRecord(recordDef);
         boolean isCompressed = fileCompression != CompressionAlgorithm.NONE;
-        DFUCreateFileWrapper createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed,
-                DFUFileTypeWrapper.Flat, "");
+
+        Span createFileSpan = Utils.createChildSpan(parentTraceID, parentSpanID, "HpccFileWriter/CreateFile_" + fileName);
+        createFileSpan.setAttribute("cluster_name", clusterName);
+        createFileSpan.setAttribute("compressed", isCompressed);
+        createFileSpan.setAttribute("record_definition", eclRecordDefn);
+        createFileSpan.setStatus(StatusCode.OK);
+
+        DFUCreateFileWrapper createResult = null;
+        try
+        {
+            createResult = dfuClient.createFile(fileName, clusterName, eclRecordDefn, DefaultExpiryTimeSecs, isCompressed, DFUFileTypeWrapper.Flat, "");
+        }
+        catch (Exception e)
+        {
+            createFileSpan.recordException(e);
+            createFileSpan.setStatus(StatusCode.ERROR);
+            throw e;
+        }
+        finally
+        {
+            createFileSpan.end();
+        }
+
+        Span repartSpan = Utils.createChildSpan(parentTraceID, parentSpanID, "HpccFileWriter/Repartition_" + fileName);
+        repartSpan.setStatus(StatusCode.OK);
 
         DFUFilePartWrapper[] dfuFileParts = createResult.getFileParts();
         DataPartition[] hpccPartitions = DataPartition.createPartitions(dfuFileParts,
@@ -375,9 +419,16 @@ public class HpccFileWriter implements Serializable
             rdd = rdd.repartition(hpccPartitions.length);
             if (rdd.getNumPartitions() != hpccPartitions.length)
             {
-                throw new Exception("Repartitioning RDD failed. Aborting write.");
+                Exception wrappedException = new Exception("Repartitioning RDD failed. Aborting write.");
+                repartSpan.recordException(wrappedException);
+                repartSpan.setStatus(StatusCode.ERROR);
+                repartSpan.end();
+
+                throw wrappedException;
             }
         }
+
+        repartSpan.end();
 
         //------------------------------------------------------------------------------
         //  Write partitions to file parts
@@ -385,11 +436,20 @@ public class HpccFileWriter implements Serializable
 
         Function2<Integer, Iterator<Row>, Iterator<FilePartWriteResults>> writeFunc = (Integer partitionIndex, Iterator<Row> it) ->
         {
-            FilePartWriteResults result = new FilePartWriteResults();
             HpccFileWriter.registerPicklingFunctions();
+            DataPartition thisPart = hpccPartitions[partitionIndex];
+            Span filePartWriteSpan = Utils.createChildSpan(parentTraceID, parentSpanID, "HpccFileWriter/WritePart_" + fileName + "_" + partitionIndex);
+            filePartWriteSpan.setStatus(StatusCode.OK);
+
+            HPCCRemoteFileWriter.FileWriteContext writeContext = new HPCCRemoteFileWriter.FileWriteContext();
+            writeContext.recordDef = recordDef;
+            writeContext.fileCompression = fileCompression;
+            writeContext.parentSpan = filePartWriteSpan;
+
             GenericRowRecordAccessor recordAccessor = new GenericRowRecordAccessor(recordDef);
-            HPCCRemoteFileWriter<Row> fileWriter = new HPCCRemoteFileWriter<Row>(hpccPartitions[partitionIndex], recordDef, recordAccessor,
-                    fileCompression);
+            HPCCRemoteFileWriter<Row> fileWriter = new HPCCRemoteFileWriter<Row>(writeContext, thisPart, recordAccessor);
+
+            FilePartWriteResults result = new FilePartWriteResults();
             try
             {
                 fileWriter.writeRecords(it);
@@ -403,6 +463,13 @@ public class HpccFileWriter implements Serializable
             {
                 result.successful = false;
                 result.errorMessage = e.getMessage();
+
+                filePartWriteSpan.recordException(e);
+                filePartWriteSpan.setStatus(StatusCode.ERROR);
+            }
+            finally
+            {
+                filePartWriteSpan.end();
             }
 
             List<FilePartWriteResults> resultList = Arrays.asList(result);
@@ -410,6 +477,9 @@ public class HpccFileWriter implements Serializable
         };
 
         // Create Write Job
+        Span issueWriteSpan = Utils.createChildSpan(parentTraceID, parentSpanID, "HpccFileWriter/WriteDataset_" + fileName);
+        issueWriteSpan.setStatus(StatusCode.OK);
+
         JavaRDD<FilePartWriteResults> writeResultsRDD = rdd.mapPartitionsWithIndex(writeFunc, true);
         List<FilePartWriteResults> writeResultsList = writeResultsRDD.collect();
 
@@ -424,13 +494,26 @@ public class HpccFileWriter implements Serializable
             if (result.successful == false)
             {
                 abortFileCreation();
-                throw new Exception("Writing failed with error: " + result.errorMessage);
+                Exception wrappedException = new Exception("Writing failed with error: " + result.errorMessage);
+                issueWriteSpan.recordException(wrappedException);
+                issueWriteSpan.setStatus(StatusCode.ERROR);
+                issueWriteSpan.end();
+
+                throw wrappedException;
             }
         }
+
+        issueWriteSpan.end();
 
         //------------------------------------------------------------------------------
         //  Publish and finalize the temp file
         //------------------------------------------------------------------------------
+
+        Span publishFileSpan = Utils.createChildSpan(parentTraceID, parentSpanID, "HpccFileWriter/PublishFile_" + fileName);
+        publishFileSpan.setAttribute("records_written", recordsWritten);
+        publishFileSpan.setAttribute("data_written", dataWritten);
+        publishFileSpan.setAttribute("overwrite", overwrite);
+        publishFileSpan.setStatus(StatusCode.OK);
 
         try
         {
@@ -438,7 +521,14 @@ public class HpccFileWriter implements Serializable
         }
         catch (Exception e)
         {
-            throw new Exception("Failed to publish file with error: " + e.getMessage());
+            Exception wrappedException = new Exception("Failed to publish file with error: " + e.getMessage());
+            publishFileSpan.recordException(wrappedException);
+            publishFileSpan.setStatus(StatusCode.ERROR);
+            throw wrappedException;
+        }
+        finally
+        {
+            publishFileSpan.end();
         }
 
         return recordsWritten;
