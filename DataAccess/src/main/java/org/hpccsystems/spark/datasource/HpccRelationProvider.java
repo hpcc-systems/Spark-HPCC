@@ -81,6 +81,7 @@ public class HpccRelationProvider implements RelationProvider, CreatableRelation
         try
         {
             HpccFileWriter fileWriter = new HpccFileWriter(options.connectionInfo);
+            fileWriter.setTraceContext(options.traceID, options.spanID);
             fileWriter.saveToHPCC(sqlContext.sparkContext(), data.schema(), data.rdd().toJavaRDD(), options.clusterName, options.fileName,
                     options.compression, overwrite);
 

@@ -18,6 +18,9 @@ import org.hpccsystems.commons.ecl.FileFilter;
 import org.hpccsystems.spark.FileFilterConverter;
 import org.hpccsystems.spark.HpccFile;
 import org.hpccsystems.spark.SparkSchemaTranslator;
+import org.hpccsystems.spark.Utils;
+
+import io.opentelemetry.api.trace.Span;
 
 /**
  * Represents a dataset in HPCC Systems with a known schema.
@@ -32,6 +35,9 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
 
     public HpccRelation(SQLContext context, HpccOptions opts)
     {
+        // Make sure we setup opentelemetry before HPCC4j
+        Utils.getOpenTelemetry();
+
         sqlContext = context;
         options = opts;
     }
@@ -46,6 +52,8 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
                 hpccFile.setTargetfilecluster(options.clusterName);
                 hpccFile.setFileAccessExpirySecs(options.expirySeconds);
                 hpccFile.setUseTLK(options.useTLK);
+
+                hpccFile.setTraceContext(options.traceID, options.spanID);
 
                 if (options.projectList != null)
                 {
@@ -142,7 +150,10 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
                 if (filefilter != null && !filefilter.isEmpty())
                     continue;
             }
-            catch (Exception e) {}
+            catch (Exception e)
+            {
+                log.warn("Unsupported filter: " + filter.toString() + " with error: " + e.getMessage());
+            }
             unhandledFilters.add(filter);
         }
 
@@ -170,6 +181,7 @@ public class HpccRelation extends BaseRelation implements PrunedFilteredScan
                 catch (Exception e)
                 {
                     log.error("Could not apply filter(s) to File '" + file.getFileName() + "': " + e.getLocalizedMessage() );
+                    throw new RuntimeException("Could not apply filter(s) to File '" + file.getFileName() + "': " + e.getLocalizedMessage());
                 }
             }
 
