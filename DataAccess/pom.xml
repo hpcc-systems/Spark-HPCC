@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.hpccsystems</groupId>
   <artifactId>spark-hpcc</artifactId>
-  <version>8.12.107-0-SNAPSHOT</version>
+  <version>8.12.109-0-SNAPSHOT</version>
   <name>spark-hpcc</name>
   <description>RDD for reading files residing in an HPCC cluster environment</description>
   <url>https://hpccsystems.com</url>
