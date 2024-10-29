@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.hpccsystems</groupId>
   <artifactId>spark-hpcc</artifactId>
-  <version>9.4.108-1-SNAPSHOT</version>
+  <version>9.4.108-1</version>
   <name>spark-hpcc</name>
   <description>Spark connector for reading files residing in an HPCC cluster environment</description>
   <url>https://hpccsystems.com</url>
