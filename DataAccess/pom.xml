@@ -235,7 +235,7 @@
             <additionalparam>-Xdoclint:none</additionalparam>
             <header>Copyright © 2021 HPCC Systems®. All rights reserved</header>
             <footer>Copyright © 2021 HPCC Systems®. All rights reserved</footer>
-            <includeDependencySources>true</includeDependencySources>
+            <includeDependencySources>false</includeDependencySources>
           </configuration>
         </plugin>
       </plugins>
