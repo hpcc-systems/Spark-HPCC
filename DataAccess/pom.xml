@@ -31,6 +31,9 @@
     <opentelemetry.semconv.version>1.25.0-alpha</opentelemetry.semconv.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javadoc.excludePackageNames>net.razorvine.*:org.apache.*:org.hpccsystems.commons.*:org.hpccsystems.generated.*:org.hpccsystems.dfs.*:org.hpccsystems.ws.*:org.hpccsystems.ws.client.antlr.*</javadoc.excludePackageNames>
+    <commons-io.version>2.14.0</commons-io.version>
+    <xalan.version>2.7.3</xalan.version>
+    <commons-fileupload.version>1.5</commons-fileupload.version>
   </properties>
   <scm>
     <connection>scm:git:https://github.com/hpcc-systems/Spark-HPCC.git</connection>
@@ -192,6 +195,28 @@
       <version>4.13</version>
       <scope>provided</scope>
     </dependency>
+    <!-- Out-dated dependency overrides -->
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${commons-io.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>xalan</groupId>
+      <artifactId>xalan</artifactId>
+      <version>${xalan.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-fileupload</groupId>
+      <artifactId>commons-fileupload</artifactId>
+      <version>${commons-fileupload.version}</version>
+    </dependency>
+    <dependency>
+        <groupId>xalan</groupId>
+        <artifactId>serializer</artifactId>
+        <version>${xalan.version}</version>
+    </dependency>
+    <!-- End Out-dated dependency overrides -->
   </dependencies>
   <build>
     <pluginManagement>
@@ -248,7 +273,6 @@
             <additionalparam>-Xdoclint:none</additionalparam>
             <header>Copyright © 2021 HPCC Systems®. All rights reserved</header>
             <footer>Copyright © 2021 HPCC Systems®. All rights reserved</footer>
-            <includeDependencySources>true</includeDependencySources>
           </configuration>
         </plugin>
       </plugins>
