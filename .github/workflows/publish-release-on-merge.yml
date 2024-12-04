@@ -15,7 +15,7 @@ jobs:
           echo "Actor      = ${{ github.actor }}"
           echo "SHA        = ${{ github.sha }}"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Maven Central Repository
         uses: actions/setup-java@v3
         with:
