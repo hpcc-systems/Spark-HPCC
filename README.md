@@ -1,5 +1,9 @@
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc/badge.svg?subject=spark-hpcc)](https://maven-badges.herokuapp.com/maven-central/org.hpccsystems/spark-hpcc)
 
+# This Project has moved locations
+The spark-hpcc project has been moved to the [hpcc4j](https://github.com/hpcc-systems/hpcc4j/tree/master/README.md) project.  All contributions to the project are now being made in the new location and this hpcc-systems/spark-hpcc repository is to be considered dormant.
+
+
 <table>
   <thead>
     <tr>
